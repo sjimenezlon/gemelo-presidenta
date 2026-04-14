@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body { height: 100%; margin: 0; background: #0b1120; color: #e5e7eb; font-family: ui-sans-serif, system-ui, sans-serif; }
+.maplibregl-ctrl-attrib { font-size: 10px; }

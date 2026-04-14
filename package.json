@@ -1,0 +1,32 @@
+{
+  "name": "gemelo-presidenta",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "maplibre-gl": "^4.7.1",
+    "deck.gl": "^9.0.33",
+    "@deck.gl/react": "^9.0.33",
+    "@deck.gl/layers": "^9.0.33",
+    "@deck.gl/geo-layers": "^9.0.33",
+    "@deck.gl/mapbox": "^9.0.33",
+    "@turf/turf": "^7.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5"
+  }
+}
