@@ -138,11 +138,23 @@ export default function ReportView() {
         </p>
 
         <div className="mb-4 grid grid-cols-5 gap-2">
-          <Kpi label="Área de estudio" value={`${meta?.comuna_14_area_km2 ?? "?"} km²`} sub="Comuna 14" />
-          <Kpi label="Población" value={meta?.comuna_14_population_kontur?.toLocaleString("es-CO") ?? "—"} sub="Kontur 2023" />
-          <Kpi label="Edificios" value={meta?.buildings_total?.toLocaleString("es-CO") ?? "—"} sub="OSM" />
-          <Kpi label="Críticos" value={meta?.critical_total ?? 148} sub="hospitales, escuelas…" />
-          <Kpi label="Puentes" value={meta?.bridges_total ?? 213} sub="OSM" />
+          <Kpi label="Área de estudio" value={`${meta?.comuna_14_area_km2 ?? "?"} km²`} sub="Comuna 14 (OSM)" />
+          <Kpi
+            label="Población"
+            value={meta?.comuna_14_population_dane?.toLocaleString("es-CO") ?? "—"}
+            sub="DANE proyección 2024"
+          />
+          <Kpi label="Edificios" value={meta?.buildings_total?.toLocaleString("es-CO") ?? "—"} sub="OSM abr-2026" />
+          <Kpi
+            label="Críticos"
+            value={meta?.critical_total ?? "—"}
+            sub={`${meta?.verified?.critical_named_pct || 90}% con nombre OSM`}
+          />
+          <Kpi
+            label="Puentes"
+            value={meta?.bridges_total ?? "—"}
+            sub={`${meta?.verified?.bridges_named_pct || 43}% con nombre OSM`}
+          />
         </div>
 
         <div className="rounded-lg border border-sky-100 bg-sky-50 p-4 text-sm">
@@ -150,27 +162,41 @@ export default function ReportView() {
           <ul className="list-inside list-disc space-y-1 text-slate-700">
             <li>
               Bajo un escenario <strong>TR 100 (lluvia 130 mm/h, calado 2.9 m)</strong>,
-              se estiman <strong>~{meta?.affected_by_level?.["3.0"] || "?"} edificios</strong>{" "}
-              y <strong>~{meta?.critical_by_level?.["3.0"] || "?"} equipamientos críticos</strong>{" "}
+              se estiman <strong>{meta?.affected_by_level?.["3.0"] || "?"} edificios</strong>{" "}
+              y <strong>{meta?.critical_by_level?.["3.0"] || "?"} equipamientos críticos nombrados</strong>{" "}
               expuestos.
             </li>
             <li>
-              Pérdida económica estimada para TR 100: <strong>{fmtCop(meta?.loss_by_level_cop?.["3.0"] || 0)} COP</strong>{" "}
-              (curva de daño HAZUS × precio referencial 6.500.000 COP/m²).
+              Pérdida económica estimada para TR 100:{" "}
+              <strong>{fmtCop(meta?.loss_by_level_cop?.["3.0"] || 0)} COP</strong>{" "}
+              (incertidumbre ±30%). Curva HAZUS × precio mezclado{" "}
+              {(meta?.price_per_m2_cop || 5500000).toLocaleString("es-CO")} COP/m².
             </li>
             <li>
               Bajo cambio climático <strong>CC 2050 (+20% intensidad, H=3.6 m)</strong>, la
-              exposición aumenta a <strong>~{meta?.affected_by_level?.["3.5"] || "?"} edificios</strong>.
+              exposición aumenta a <strong>{meta?.affected_by_level?.["3.5"] || "?"} edificios</strong>{" "}
+              y pérdida de <strong>{fmtCop(meta?.loss_by_level_cop?.["3.5"] || 0)} COP</strong>.
             </li>
             <li>
-              Población potencialmente afectada: <strong>~{meta?.population_by_level?.["3.0"]?.toLocaleString("es-CO") || "—"}</strong> habitantes
-              (límite inferior, resolución Kontur ~460 m).
+              Población potencialmente afectada (TR 100):{" "}
+              <strong>{meta?.population_by_level?.["3.0"]?.toLocaleString("es-CO") || "—"}</strong>{" "}
+              habitantes —{" "}
+              {meta?.comuna_14_population_dane
+                ? `${Math.round((100 * (meta.population_by_level?.["3.0"] || 0)) / meta.comuna_14_population_dane)}%`
+                : "—"}{" "}
+              del total de la Comuna 14.
             </li>
             <li>
-              {exposedAtTR100.length} equipamientos críticos identificados con nombre se
-              encuentran en zona de inundación bajo TR 100.
+              <strong>{exposedAtTR100.length} equipamientos críticos identificados por nombre</strong>{" "}
+              se encuentran en zona de inundación TR 100 (ver Sección 3).
             </li>
           </ul>
+        </div>
+        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900">
+          <strong>Verificabilidad.</strong> Todas las cifras anteriores se derivan de OSM 2026-04 +
+          DEM Terrarium + Kontur 2023 + DANE proyección 2024. La lista de equipamientos
+          críticos (Sección 3) contiene únicamente elementos con <em>name</em> en OSM — los 15
+          elementos sin nombre (~10% del total) fueron excluidos.
         </div>
       </section>
 
@@ -354,8 +380,21 @@ export default function ReportView() {
             Las curvas de daño siguen una forma HAZUS simplificada:{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">ratio(d) = min(0.95, 0.15·d + 0.08·d²)</code>,
             donde d es la profundidad dentro del edificio. El valor por metro cuadrado
-            utilizado es el precio referencial de El Poblado 2026:{" "}
-            <strong>{(meta?.price_per_m2_cop || 6500000).toLocaleString("es-CO")} COP/m²</strong>.
+            utilizado es un precio mezclado El Poblado 2026 (residencial + comercial + oficinas):{" "}
+            <strong>{(meta?.price_per_m2_cop || 5500000).toLocaleString("es-CO")} COP/m²</strong>.
+            Los pisos provienen del atributo <code>building:levels</code> de OSM cuando existe; en
+            caso contrario se aplica una heurística por área: <em>&lt;80 m²→2 pisos, 80–250→4,
+            250–600→8, &gt;600→12</em>. El valor total edificado del área es de aproximadamente{" "}
+            <strong>{((meta?.total_value_cop || 0) / 1e12).toFixed(0)} billones COP</strong> (~$
+            {Math.round((meta?.total_value_cop || 0) / 4e12)} mil millones USD).
+          </p>
+          <p>
+            <strong>Población.</strong> La base son los hexágonos H3 resolución 8 de Kontur
+            (2023-11, ~460 m), escalados por un factor{" "}
+            <strong>{meta?.kontur_scale_factor || "0.62"}</strong> para igualar la proyección DANE
+            2024 de la Comuna 14 ({meta?.comuna_14_population_dane?.toLocaleString("es-CO") || "140.184"} habitantes). Kontur
+            bruto reportaba {meta?.comuna_14_population_kontur?.toLocaleString("es-CO") || "224.780"}, que
+            sobreestimaba el dato oficial.
           </p>
         </div>
       </section>
@@ -376,10 +415,11 @@ export default function ReportView() {
             <tr><td>DEM (topografía)</td><td>Mapzen Terrarium via AWS Open Data</td><td>2022 (composite)</td><td>CC0 / ODbL</td></tr>
             <tr><td>Cauce La Presidenta</td><td>OpenStreetMap (Overpass API)</td><td>abril 2026</td><td>ODbL</td></tr>
             <tr><td>Río Medellín</td><td>OpenStreetMap</td><td>abril 2026</td><td>ODbL</td></tr>
-            <tr><td>Edificaciones (4.729)</td><td>OpenStreetMap</td><td>abril 2026</td><td>ODbL</td></tr>
-            <tr><td>Equip. críticos (148)</td><td>OpenStreetMap amenities</td><td>abril 2026</td><td>ODbL</td></tr>
-            <tr><td>Puentes/túneles (213)</td><td>OpenStreetMap bridges</td><td>abril 2026</td><td>ODbL</td></tr>
-            <tr><td>Población (H3 hex)</td><td>Kontur Population Colombia</td><td>2023-11-01</td><td>CC BY 4.0</td></tr>
+            <tr><td>Edificaciones ({meta?.buildings_total?.toLocaleString("es-CO") || "4.729"})</td><td>OpenStreetMap</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Equip. críticos ({meta?.critical_total || 133} con nombre)</td><td>OpenStreetMap amenities</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Puentes/túneles ({meta?.bridges_total || 92} con nombre)</td><td>OpenStreetMap bridges</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Población (H3 hex escalado)</td><td>Kontur × DANE 2024</td><td>2023-11 / 2024</td><td>CC BY 4.0</td></tr>
+            <tr><td>Población oficial Comuna 14</td><td>DANE proyección censal 2024</td><td>2024</td><td>Pública</td></tr>
             <tr><td>Comuna 14 boundary</td><td>OpenStreetMap relation</td><td>abril 2026</td><td>ODbL</td></tr>
             <tr><td>Límite municipal</td><td>GADM v4.1</td><td>2022</td><td>GADM non-commercial</td></tr>
             <tr><td>Lluvia histórica</td><td>Open-Meteo ERA5 reanalysis</td><td>2020–2026</td><td>CC BY 4.0</td></tr>

@@ -108,8 +108,8 @@ export default function DigitalTwinMap({
             ],
             "fill-extrusion-height": [
               "case",
-              ["has", "levels"],
-              ["*", ["to-number", ["get", "levels"]], 3.2],
+              ["has", "est_levels"],
+              ["*", ["to-number", ["get", "est_levels"]], 3.2],
               9,
             ],
             "fill-extrusion-base": 0,
@@ -193,14 +193,14 @@ export default function DigitalTwinMap({
           const f = e.features?.[0];
           if (!f) return;
           const p: any = f.properties || {};
+          const val = p.value_cop ? `${Math.round(p.value_cop / 1e6).toLocaleString("es-CO")} M COP` : "—";
           new maplibregl.Popup()
             .setLngLat(e.lngLat)
             .setHTML(
               `<strong>Edificación OSM #${p.id}</strong><br/>
-               Elevación: ${p.elev ?? "?"} m<br/>
-               HAND: <b>${p.hand ?? "?"} m</b> sobre cauce<br/>
-               Distancia al cauce: ${p.dist_cauce_m ?? "?"} m<br/>
-               Niveles: ${p.levels || "sin dato"}`,
+               Elevación: ${p.elev ?? "?"} m · HAND <b>${p.hand ?? "?"} m</b><br/>
+               Área: ${p.area_m2 ?? "?"} m² · Pisos: ${p.est_levels ?? "?"}${p.levels ? " (OSM)" : " (est.)"}<br/>
+               GFA: ${p.gfa_m2 ?? "?"} m² · Valor: ${val}`,
             )
             .addTo(map);
         });
