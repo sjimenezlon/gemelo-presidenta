@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import maplibregl, { Map as MlMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { buildStyle, INITIAL_VIEW } from "./mapStyle";
@@ -8,7 +8,9 @@ import { useTwin } from "./store";
 export default function DigitalTwinMap() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
+  const lastBasemap = useRef<string>("");
   const twin = useTwin();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -35,6 +37,7 @@ export default function DigitalTwinMap() {
     let markersDone = false;
 
     const installLayers = async () => {
+      try {
       if (map.getSource("presidenta")) return;
 
       const [presidenta, rio, buildings] = await Promise.all([
@@ -187,7 +190,14 @@ export default function DigitalTwinMap() {
         if (nac) mk(nac[0], nac[1], "#10b981", "Nacimiento (aguas arriba)");
         if (des) mk(des[0], des[1], "#f59e0b", "Desembocadura en Río Medellín");
       }
+      } catch (err: any) {
+        console.error("installLayers error", err);
+        setError(String(err?.message || err));
+      }
     };
+    map.on("error", (e: any) => {
+      console.error("maplibre error", e?.error || e);
+    });
 
     map.on("load", installLayers);
     map.on("style.load", installLayers);
@@ -219,10 +229,16 @@ export default function DigitalTwinMap() {
       );
   }, [twin.floodLevel, twin.showBuildings]);
 
-  // Basemap switching
+  // Basemap switching — solo si cambia
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    if (lastBasemap.current === twin.basemap) return;
+    if (lastBasemap.current === "") {
+      lastBasemap.current = twin.basemap;
+      return;
+    }
+    lastBasemap.current = twin.basemap;
     map.setStyle(buildStyle(twin.basemap));
   }, [twin.basemap]);
 
@@ -239,5 +255,14 @@ export default function DigitalTwinMap() {
     setVis("overlay-esri-hillshade", twin.overlays.esri_hillshade);
   }, [twin.overlays, twin.basemap]);
 
-  return <div ref={containerRef} className="absolute inset-0" />;
+  return (
+    <>
+      <div ref={containerRef} className="absolute inset-0" style={{ width: "100%", height: "100%" }} />
+      {error && (
+        <div className="absolute left-4 bottom-4 z-30 max-w-sm rounded-lg bg-red-900/80 px-3 py-2 text-xs text-red-100 ring-1 ring-red-400/40">
+          Error cargando capas: {error}
+        </div>
+      )}
+    </>
+  );
 }

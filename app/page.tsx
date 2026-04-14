@@ -24,9 +24,6 @@ export default function Page() {
             Quebrada La Presidenta · El Poblado, Medellín
           </h1>
         </div>
-        <div className="pointer-events-auto rounded-xl bg-ink/80 px-3 py-2 text-xs text-slate-300 backdrop-blur-md ring-1 ring-white/10">
-          DENSURBAM · EAFIT Urbam
-        </div>
       </header>
     </main>
   );
