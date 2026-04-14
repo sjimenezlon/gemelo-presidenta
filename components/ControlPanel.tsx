@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { twinStore, useTwin, type OverlayId } from "./store";
-import { IDF, type ScenarioKey, countAffectedBuildings } from "@/lib/flood";
+import { IDF, type ScenarioKey, countAffectedBuildings, countAffectedPoints } from "@/lib/flood";
 import { BASEMAPS, type BasemapId } from "./mapStyle";
 
 const OVERLAYS: { id: OverlayId; label: string }[] = [
@@ -12,21 +12,24 @@ const OVERLAYS: { id: OverlayId; label: string }[] = [
 
 export default function ControlPanel() {
   const twin = useTwin();
-  const [stats, setStats] = useState<{ count: number; areaM2: number }>({ count: 0, areaM2: 0 });
+  const [stats, setStats] = useState({ buildings: 0, critical: 0, bridges: 0 });
+  const [loaded, setLoaded] = useState<any>(null);
 
-  // Cruce real edificios × HAND cada vez que cambia el nivel
   useEffect(() => {
-    let cancelled = false;
-    fetch("/data/buildings.geojson")
-      .then((r) => r.json())
-      .then((fc) => {
-        if (cancelled) return;
-        setStats(countAffectedBuildings(fc, twin.floodLevel));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [twin.floodLevel]);
+    Promise.all([
+      fetch("/data/buildings.geojson").then((r) => r.json()),
+      fetch("/data/critical.geojson").then((r) => r.json()),
+      fetch("/data/bridges.geojson").then((r) => r.json()),
+    ]).then(([b, c, br]) => setLoaded({ b, c, br }));
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const b = countAffectedBuildings(loaded.b, twin.floodLevel).count;
+    const c = countAffectedPoints(loaded.c, twin.floodLevel, 300);
+    const br = countAffectedPoints(loaded.br, twin.floodLevel, 300);
+    setStats({ buildings: b, critical: c, bridges: br });
+  }, [twin.floodLevel, loaded]);
 
   const scenarioList: ScenarioKey[] = ["tr2", "tr5", "tr10", "tr25", "tr50", "tr100", "cc2050"];
   const active = scenarioList.find((k) => Math.abs(IDF[k].H - twin.floodLevel) < 0.05);
@@ -89,14 +92,31 @@ export default function ControlPanel() {
           Exposición real (cruce HAND × OSM)
         </h2>
         <dl className="grid grid-cols-3 gap-2 text-center">
-          <Stat label="Edificios expuestos" value={stats.count.toLocaleString("es-CO")} />
-          <Stat label="Área edificada (m²)" value={Math.round(stats.areaM2).toLocaleString("es-CO")} />
-          <Stat label="% del total" value={twin.buildingsTotal ? `${((stats.count / twin.buildingsTotal) * 100).toFixed(1)}%` : "—"} />
+          <Stat label="Edificios expuestos" value={stats.buildings.toLocaleString("es-CO")} />
+          <Stat label="Críticos expuestos" value={stats.critical.toString()} />
+          <Stat label="Puentes expuestos" value={stats.bridges.toString()} />
         </dl>
         <p className="mt-2 text-[10px] leading-snug text-slate-500">
-          Edificios con HAND ≤ nivel Y a ≤400 m del cauce. De {twin.buildingsTotal.toLocaleString("es-CO")} edificaciones OSM en el área de estudio.
+          Elementos con HAND ≤ {twin.floodLevel.toFixed(1)} m. Críticos: hospitales,
+          clínicas, escuelas, colegios, universidades, bomberos, policía, farmacias (OSM).
         </p>
       </section>
+
+      {twin.meta?.era5_max_day_mm && (
+        <section className="rounded-2xl bg-ink/85 p-4 backdrop-blur-md ring-1 ring-white/10">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-cyan-300">
+            Eventos extremos recientes (ERA5)
+          </h2>
+          <div className="space-y-1 text-[11px]">
+            <div className="flex justify-between"><span className="text-slate-300">Max diario 2020–2026</span><span className="font-mono text-cyan-200">{twin.meta.era5_max_day_mm} mm</span></div>
+            <div className="flex justify-between"><span className="text-slate-300">Max horario 2023–2026</span><span className="font-mono text-cyan-200">{twin.meta.era5_max_hour_mmh} mm/h</span></div>
+          </div>
+          <p className="mt-2 text-[10px] text-slate-500">
+            Fuente: Open-Meteo ERA5 (9 km). Subestima picos convectivos; usar solo
+            como referencia temporal de eventos.
+          </p>
+        </section>
+      )}
 
       <section className="rounded-2xl bg-ink/85 p-4 backdrop-blur-md ring-1 ring-white/10">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-cyan-300">

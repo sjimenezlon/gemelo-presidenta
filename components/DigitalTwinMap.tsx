@@ -38,12 +38,14 @@ export default function DigitalTwinMap() {
       if (installing || map.getSource("rio")) return;
       installing = true;
       try {
-        const [presidenta, rio, buildings, handGrid, meta] = await Promise.all([
+        const [presidenta, rio, buildings, handGrid, meta, critical, bridges] = await Promise.all([
           fetch("/data/presidenta.geojson").then((r) => r.json()),
           fetch("/data/rio_medellin.geojson").then((r) => r.json()),
           fetch("/data/buildings.geojson").then((r) => r.json()),
           fetch("/data/hand_grid.geojson").then((r) => r.json()),
           fetch("/data/meta.json").then((r) => r.json()),
+          fetch("/data/critical.geojson").then((r) => r.json()),
+          fetch("/data/bridges.geojson").then((r) => r.json()),
         ]);
         handGridRef.current = handGrid;
         twinStore.set({ buildingsTotal: buildings.features.length, meta });
@@ -129,6 +131,55 @@ export default function DigitalTwinMap() {
           "presidenta-glow",
         );
 
+        // Puentes / túneles
+        map.addSource("bridges", { type: "geojson", data: bridges });
+        map.addLayer({
+          id: "bridges-line",
+          type: "line",
+          source: "bridges",
+          paint: {
+            "line-color": [
+              "case",
+              ["<=", ["get", "hand"], twin.floodLevel],
+              "#ef4444",
+              "#fb923c",
+            ],
+            "line-width": 3,
+          },
+        });
+
+        // Infraestructura crítica (puntos)
+        map.addSource("critical", { type: "geojson", data: critical });
+        map.addLayer({
+          id: "critical-pt",
+          type: "circle",
+          source: "critical",
+          paint: {
+            "circle-radius": 6,
+            "circle-color": [
+              "case",
+              ["<=", ["get", "hand"], twin.floodLevel],
+              "#ef4444",
+              "#fbbf24",
+            ],
+            "circle-stroke-color": "#0b1120",
+            "circle-stroke-width": 2,
+          },
+        });
+        map.on("click", "critical-pt", (e) => {
+          const f = e.features?.[0];
+          if (!f) return;
+          const p: any = f.properties || {};
+          new maplibregl.Popup()
+            .setLngLat(e.lngLat)
+            .setHTML(
+              `<strong>${p.kind}</strong> ${p.name ? "· " + p.name : ""}<br/>
+               HAND: <b>${p.hand} m</b> sobre cauce<br/>
+               ${p.hand <= twin.floodLevel ? "⚠️ EXPUESTO" : "✅ Sobre el nivel actual"}`,
+            )
+            .addTo(map);
+        });
+
         // Popup edificios
         map.on("click", "buildings-3d", (e) => {
           const f = e.features?.[0];
@@ -199,6 +250,22 @@ export default function DigitalTwinMap() {
         "#64748b",
       ]);
       map.setLayoutProperty("buildings-3d", "visibility", twin.showBuildings ? "visible" : "none");
+    }
+    if (map.getLayer("critical-pt")) {
+      map.setPaintProperty("critical-pt", "circle-color", [
+        "case",
+        ["<=", ["get", "hand"], twin.floodLevel],
+        "#ef4444",
+        "#fbbf24",
+      ]);
+    }
+    if (map.getLayer("bridges-line")) {
+      map.setPaintProperty("bridges-line", "line-color", [
+        "case",
+        ["<=", ["get", "hand"], twin.floodLevel],
+        "#ef4444",
+        "#fb923c",
+      ]);
     }
   }, [twin.floodLevel, twin.showBuildings]);
 

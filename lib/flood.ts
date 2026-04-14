@@ -33,24 +33,28 @@ export function countAffectedBuildings(
   level: number,
 ) {
   let count = 0;
-  let areaM2 = 0;
   for (const f of buildingsFC.features) {
     const p: any = f.properties || {};
     if (p.hand == null) continue;
     if (p.dist_cauce_m != null && p.dist_cauce_m > 400) continue;
-    if (p.hand <= level) {
-      count++;
-      // área aproximada: bbox del polígono × cos(lat)
-      const ring = (f.geometry as any).coordinates[0] as number[][];
-      const lons = ring.map((c) => c[0]);
-      const lats = ring.map((c) => c[1]);
-      const lat0 = (Math.min(...lats) + Math.max(...lats)) / 2;
-      const dx = (Math.max(...lons) - Math.min(...lons)) * 111000 * Math.cos((lat0 * Math.PI) / 180);
-      const dy = (Math.max(...lats) - Math.min(...lats)) * 111000;
-      areaM2 += Math.max(0, dx * dy * 0.75); // factor de forma
-    }
+    if (p.hand <= level) count++;
   }
-  return { count, areaM2 };
+  return { count };
+}
+
+export function countAffectedPoints(
+  fc: FeatureCollection,
+  level: number,
+  maxDistM = 300,
+): number {
+  let n = 0;
+  for (const f of fc.features) {
+    const p: any = f.properties || {};
+    if (p.hand == null) continue;
+    if (p.dist_grid_m != null && p.dist_grid_m > maxDistM) continue;
+    if (p.hand <= level) n++;
+  }
+  return n;
 }
 
 /**

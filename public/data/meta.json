@@ -26,5 +26,11 @@
     "5.0": 802
   },
   "model": "HAND (Height Above Nearest Drainage)",
-  "method_ref": "Renn\u00f3 et al. 2008; Nobre et al. 2011"
+  "method_ref": "Renn\u00f3 et al. 2008; Nobre et al. 2011",
+  "critical_total": 148,
+  "bridges_total": 213,
+  "rainfall_source": "Open-Meteo ERA5 reanalysis 2020-2026",
+  "rainfall_snapshot": "2026-04-14",
+  "era5_max_day_mm": 58.4,
+  "era5_max_hour_mmh": 15.8
 }
