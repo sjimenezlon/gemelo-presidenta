@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import maplibregl, { Map as MlMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { mapStyle, INITIAL_VIEW } from "./mapStyle";
+import { buildStyle, INITIAL_VIEW } from "./mapStyle";
 import { cauce, cuenca, landmarks } from "@/data/quebrada";
 import { useTwin } from "./store";
 import { buildFloodPolygon } from "@/lib/flood";
@@ -16,7 +16,7 @@ export default function DigitalTwinMap() {
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: mapStyle,
+      style: buildStyle(twin.basemap),
       center: [INITIAL_VIEW.longitude, INITIAL_VIEW.latitude],
       zoom: INITIAL_VIEW.zoom,
       pitch: INITIAL_VIEW.pitch,
@@ -28,7 +28,8 @@ export default function DigitalTwinMap() {
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
 
-    map.on("load", () => {
+    const installLayers = () => {
+      if (map.getSource("cuenca")) return;
       map.addSource("cuenca", { type: "geojson", data: cuenca });
       map.addLayer({
         id: "cuenca-fill",
@@ -85,6 +86,8 @@ export default function DigitalTwinMap() {
 
       // 3D buildings desde OSM (si el basemap los tuviera) — usamos capa procedural
       // Markers
+      if ((installLayers as any)._markersDone) return;
+      (installLayers as any)._markersDone = true;
       landmarks.forEach((l) => {
         const el = document.createElement("div");
         el.className = "twin-marker";
@@ -97,7 +100,9 @@ export default function DigitalTwinMap() {
           .setPopup(new maplibregl.Popup({ offset: 12 }).setHTML(`<strong>${l.name}</strong><br/><small>${l.type}</small>`))
           .addTo(map);
       });
-    });
+    };
+    map.on("load", installLayers);
+    map.on("style.load", installLayers);
 
     return () => {
       map.remove();
@@ -116,6 +121,26 @@ export default function DigitalTwinMap() {
     if (map.getLayer("cuenca-line"))
       map.setLayoutProperty("cuenca-line", "visibility", twin.showCuenca ? "visible" : "none");
   }, [twin.floodLevel, twin.showCuenca]);
+
+  // Basemap switching
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.setStyle(buildStyle(twin.basemap));
+  }, [twin.basemap]);
+
+  // Overlay visibility
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    const setVis = (id: string, v: boolean) => {
+      if (map.getLayer(id))
+        map.setLayoutProperty(id, "visibility", v ? "visible" : "none");
+    };
+    setVis("overlay-hot", twin.overlays.hot);
+    setVis("overlay-nasa-precip", twin.overlays.nasa_precip);
+    setVis("overlay-esri-hillshade", twin.overlays.esri_hillshade);
+  }, [twin.overlays, twin.basemap]);
 
   return <div ref={containerRef} className="absolute inset-0" />;
 }

@@ -1,7 +1,14 @@
 "use client";
-import { twinStore, useTwin } from "./store";
+import { twinStore, useTwin, type OverlayId } from "./store";
 import { estimateAffected } from "@/lib/flood";
 import SiataPanel from "./SiataPanel";
+import { BASEMAPS, type BasemapId } from "./mapStyle";
+
+const OVERLAYS: { id: OverlayId; label: string; hint: string }[] = [
+  { id: "hot", label: "OSM Humanitario", hint: "Contexto urbano denso (edificios, calles)" },
+  { id: "nasa_precip", label: "NASA IMERG precipitación", hint: "Lluvia global GPM ~10km" },
+  { id: "esri_hillshade", label: "Hillshade Esri", hint: "Sombreado global de alta resolución" },
+];
 
 const scenarios = [
   { id: "actual", label: "Actual", level: 0.4, desc: "Caudal base, época seca" },
@@ -73,7 +80,38 @@ export default function ControlPanel() {
 
       <section className="rounded-2xl bg-ink/85 p-4 backdrop-blur-md ring-1 ring-white/10">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-cyan-300">
-          Capas
+          Basemap
+        </h2>
+        <div className="mb-3 grid grid-cols-2 gap-1.5">
+          {(Object.keys(BASEMAPS) as BasemapId[]).map((id) => (
+            <button
+              key={id}
+              onClick={() => twinStore.set({ basemap: id })}
+              className={`rounded-lg px-2 py-1.5 text-[11px] ring-1 transition ${
+                twin.basemap === id
+                  ? "bg-cyan-500/20 text-cyan-200 ring-cyan-400/60"
+                  : "bg-white/5 text-slate-300 ring-white/10 hover:bg-white/10"
+              }`}
+            >
+              {BASEMAPS[id].label}
+            </button>
+          ))}
+        </div>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-cyan-300">
+          Overlays temáticos
+        </h2>
+        {OVERLAYS.map((o) => (
+          <Toggle
+            key={o.id}
+            label={o.label}
+            value={twin.overlays[o.id]}
+            onChange={(v) =>
+              twinStore.set({ overlays: { ...twin.overlays, [o.id]: v } })
+            }
+          />
+        ))}
+        <h2 className="mb-2 mt-3 text-xs font-semibold uppercase tracking-widest text-cyan-300">
+          Capas vectoriales
         </h2>
         <Toggle label="Cuenca hidrográfica" value={twin.showCuenca} onChange={(v) => twinStore.set({ showCuenca: v })} />
         <Toggle label="Estaciones SIATA" value={twin.showSiata} onChange={(v) => twinStore.set({ showSiata: v })} />
