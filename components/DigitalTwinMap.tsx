@@ -7,7 +7,11 @@ import { useTwin, twinStore } from "./store";
 import { floodFromHand } from "@/lib/flood";
 import type { FeatureCollection } from "geojson";
 
-export default function DigitalTwinMap() {
+export default function DigitalTwinMap({
+  mapRef: externalRef,
+}: {
+  mapRef?: React.MutableRefObject<MlMap | null>;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const handGridRef = useRef<FeatureCollection | null>(null);
@@ -28,6 +32,7 @@ export default function DigitalTwinMap() {
       attributionControl: { compact: true },
     });
     mapRef.current = map;
+    if (externalRef) externalRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
 
@@ -201,18 +206,33 @@ export default function DigitalTwinMap() {
 
         if (!markersDone) {
           markersDone = true;
+          // Buscar el extremo oriental (aguas arriba — mayor elevación) y occidental
+          // (aguas abajo — último punto trazado en OSM antes del canal cubierto)
           const all: number[][] = [];
-          presidenta.features.forEach((f: any) => f.geometry.coordinates.forEach((c: number[]) => all.push(c)));
-          const mk = (lng: number, lat: number, color: string, label: string) => {
+          presidenta.features.forEach((f: any) =>
+            f.geometry.coordinates.forEach((c: number[]) => all.push(c)),
+          );
+          let east = all[0], west = all[0];
+          for (const c of all) {
+            if (c[0] > east[0]) east = c;
+            if (c[0] < west[0]) west = c;
+          }
+          const mk = (lng: number, lat: number, color: string, label: string, sub: string) => {
             const el = document.createElement("div");
             el.style.cssText = `width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #0b1120;box-shadow:0 0 12px ${color};`;
             new maplibregl.Marker({ element: el })
               .setLngLat([lng, lat])
-              .setPopup(new maplibregl.Popup({ offset: 12 }).setHTML(`<strong>${label}</strong>`))
+              .setPopup(
+                new maplibregl.Popup({ offset: 12 }).setHTML(
+                  `<strong>${label}</strong><br/><small>${sub}</small>`,
+                ),
+              )
               .addTo(map);
           };
-          if (all[0]) mk(all[0][0], all[0][1], "#10b981", "Nacimiento (aguas arriba)");
-          if (all[all.length - 1]) mk(all[all.length - 1][0], all[all.length - 1][1], "#f59e0b", "Desembocadura en Río Medellín");
+          if (east)
+            mk(east[0], east[1], "#10b981", "Nacimiento · Las Palmas", "Tramo aguas arriba (OSM)");
+          if (west)
+            mk(west[0], west[1], "#f59e0b", "Límite OSM aguas abajo", "El canal cubierto continúa ~1 km hasta el Río Medellín");
         }
       } catch (err: any) {
         console.error("installLayers error", err);

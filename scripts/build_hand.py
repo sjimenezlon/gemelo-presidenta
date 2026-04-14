@@ -125,6 +125,18 @@ def centroid(coords):
     return cx, cy
 
 
+def polygon_area_m2(ring, lat0):
+    # Shoelace en coordenadas locales aproximadas (metros)
+    mx = 111000 * math.cos(math.radians(lat0))
+    my = 111000
+    s = 0.0
+    for i in range(len(ring) - 1):
+        x1, y1 = ring[i][0] * mx, ring[i][1] * my
+        x2, y2 = ring[i + 1][0] * mx, ring[i + 1][1] * my
+        s += x1 * y2 - x2 * y1
+    return abs(s) / 2.0
+
+
 def main():
     cauce_fc = json.load(open(DATA / "presidenta.geojson"))
     buildings_fc = json.load(open(DATA / "buildings.geojson"))
@@ -139,7 +151,17 @@ def main():
 
     # --- Building HAND ---
     print("Computing HAND per building…")
-    affected_by_level = {round(l, 1): 0 for l in np.arange(0.5, 5.1, 0.5)}
+    levels = [round(l, 1) for l in np.arange(0.5, 5.1, 0.5)]
+    affected_by_level = {l: 0 for l in levels}
+    area_by_level = {l: 0.0 for l in levels}
+    loss_by_level = {l: 0.0 for l in levels}
+
+    # Depth-damage curve (HAZUS-like residencial + comercial)
+    def damage_ratio(depth):
+        return min(0.95, max(0.0, 0.15 * depth + 0.08 * depth * depth))
+
+    PRECIO_M2_COP = 6_500_000  # El Poblado 2026 referencial
+
     for feat in buildings_fc["features"]:
         ring = feat["geometry"]["coordinates"][0]
         cx, cy = centroid(ring)
@@ -149,15 +171,32 @@ def main():
             continue
         ce, dist = nearest_cauce_elev(cauce_pts, cx, cy)
         hand = max(0.0, e - ce)
+        area = polygon_area_m2(ring, cy)
+        levels_bldg = 1
+        try:
+            levels_bldg = max(1, int(float(feat["properties"].get("levels", 1) or 1)))
+        except Exception:
+            levels_bldg = 1
+        gfa = area * levels_bldg
+        value_cop = gfa * PRECIO_M2_COP
+
         feat["properties"]["hand"] = round(hand, 2)
         feat["properties"]["dist_cauce_m"] = round(dist, 1)
         feat["properties"]["elev"] = round(e, 1)
-        for l in affected_by_level:
+        feat["properties"]["area_m2"] = round(area, 1)
+        feat["properties"]["gfa_m2"] = round(gfa, 1)
+        feat["properties"]["value_cop"] = int(value_cop)
+        for l in levels:
             if hand <= l and dist < 400:
                 affected_by_level[l] += 1
+                area_by_level[l] += area
+                depth_in_bldg = max(0.0, l - hand)
+                dmg = damage_ratio(depth_in_bldg)
+                loss_by_level[l] += value_cop * dmg
 
     json.dump(buildings_fc, open(DATA / "buildings.geojson", "w"))
     print(f"  buildings expuestos por nivel: {affected_by_level}")
+    print(f"  pérdida COP estimada por nivel: {[(k, round(v/1e9,2)) for k,v in loss_by_level.items()]} (miles de millones)")
 
     # --- HAND grid for turf.isobands ---
     print("Building HAND grid…")
@@ -186,9 +225,33 @@ def main():
     json.dump(grid, open(DATA / "hand_grid.geojson", "w"))
     print(f"  grid points: {len(pts_feats)}")
 
+    # --- Critical + bridges per level (from existing precomputed files) ---
+    def count_points_by_level(fc_path):
+        try:
+            fc = json.load(open(fc_path))
+        except Exception:
+            return {}
+        out = {l: 0 for l in levels}
+        for f in fc["features"]:
+            p = f.get("properties", {})
+            h = p.get("hand")
+            d = p.get("dist_grid_m", 0)
+            if h is None or d is None or d > 300:
+                continue
+            for l in levels:
+                if h <= l:
+                    out[l] += 1
+        return out
+
+    critical_by_level = count_points_by_level(DATA / "critical.geojson")
+    bridges_by_level = count_points_by_level(DATA / "bridges.geojson")
+    print(f"  critical expuestos: {critical_by_level}")
+    print(f"  bridges expuestos: {bridges_by_level}")
+
     # --- Metadata ---
     meta = {
         "bbox": list(BBOX),
+        "snapshot_date": "2026-04-14",
         "dem_source": "Mapzen Terrarium via AWS Open Data",
         "dem_zoom": ZOOM,
         "dem_resolution_m_approx": round(
@@ -200,8 +263,17 @@ def main():
         "grid_points": len(pts_feats),
         "buildings_total": len(buildings_fc["features"]),
         "affected_by_level": {str(k): v for k, v in affected_by_level.items()},
+        "area_affected_by_level_m2": {str(k): round(v, 0) for k, v in area_by_level.items()},
+        "loss_by_level_cop": {str(k): int(v) for k, v in loss_by_level.items()},
+        "critical_by_level": {str(k): v for k, v in critical_by_level.items()},
+        "bridges_by_level": {str(k): v for k, v in bridges_by_level.items()},
+        "price_per_m2_cop": PRECIO_M2_COP,
+        "damage_curve": "HAZUS-like: ratio = min(0.95, 0.15d + 0.08d²)",
         "model": "HAND (Height Above Nearest Drainage)",
         "method_ref": "Rennó et al. 2008; Nobre et al. 2011",
+        "era5_max_day_mm": 58.4,
+        "era5_max_hour_mmh": 15.8,
+        "rainfall_source": "Open-Meteo ERA5 2020-2026",
     }
     json.dump(meta, open(DATA / "meta.json", "w"), indent=2)
     print("Done. Wrote buildings.geojson, hand_grid.geojson, meta.json")

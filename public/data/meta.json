@@ -5,6 +5,7 @@
     -75.525,
     6.22
   ],
+  "snapshot_date": "2026-04-14",
   "dem_source": "Mapzen Terrarium via AWS Open Data",
   "dem_zoom": 14,
   "dem_resolution_m_approx": 9.5,
@@ -25,12 +26,59 @@
     "4.5": 776,
     "5.0": 802
   },
+  "area_affected_by_level_m2": {
+    "0.5": 232198.0,
+    "1.0": 254804.0,
+    "1.5": 267302.0,
+    "2.0": 275749.0,
+    "2.5": 296199.0,
+    "3.0": 307016.0,
+    "3.5": 315250.0,
+    "4.0": 329531.0,
+    "4.5": 355504.0,
+    "5.0": 373195.0
+  },
+  "loss_by_level_cop": {
+    "0.5": 184011096431,
+    "1.0": 468219146669,
+    "1.5": 853254900492,
+    "2.0": 1337142760553,
+    "2.5": 1922230690946,
+    "3.0": 2198842011637,
+    "3.5": 2300609758611,
+    "4.0": 2377176942840,
+    "4.5": 2465053767013,
+    "5.0": 2575004948993
+  },
+  "critical_by_level": {
+    "0.5": 27,
+    "1.0": 29,
+    "1.5": 31,
+    "2.0": 32,
+    "2.5": 34,
+    "3.0": 34,
+    "3.5": 38,
+    "4.0": 41,
+    "4.5": 42,
+    "5.0": 42
+  },
+  "bridges_by_level": {
+    "0.5": 34,
+    "1.0": 36,
+    "1.5": 40,
+    "2.0": 42,
+    "2.5": 48,
+    "3.0": 51,
+    "3.5": 51,
+    "4.0": 52,
+    "4.5": 53,
+    "5.0": 55
+  },
+  "price_per_m2_cop": 6500000,
+  "damage_curve": "HAZUS-like: ratio = min(0.95, 0.15d + 0.08d\u00b2)",
   "model": "HAND (Height Above Nearest Drainage)",
   "method_ref": "Renn\u00f3 et al. 2008; Nobre et al. 2011",
-  "critical_total": 148,
-  "bridges_total": 213,
-  "rainfall_source": "Open-Meteo ERA5 reanalysis 2020-2026",
-  "rainfall_snapshot": "2026-04-14",
   "era5_max_day_mm": 58.4,
-  "era5_max_hour_mmh": 15.8
+  "era5_max_hour_mmh": 15.8,
+  "rainfall_source": "Open-Meteo ERA5 2020-2026"
 }

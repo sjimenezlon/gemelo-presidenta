@@ -1,7 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
 import { twinStore, useTwin, type OverlayId } from "./store";
-import { IDF, type ScenarioKey, countAffectedBuildings, countAffectedPoints } from "@/lib/flood";
+import { IDF, type ScenarioKey } from "@/lib/flood";
 import { BASEMAPS, type BasemapId } from "./mapStyle";
 
 const OVERLAYS: { id: OverlayId; label: string }[] = [
@@ -10,32 +9,18 @@ const OVERLAYS: { id: OverlayId; label: string }[] = [
   { id: "esri_hillshade", label: "Hillshade Esri" },
 ];
 
-export default function ControlPanel() {
+export default function ControlPanel({
+  stats,
+}: {
+  stats: { buildings: number; critical: number; bridges: number; loss: number };
+}) {
   const twin = useTwin();
-  const [stats, setStats] = useState({ buildings: 0, critical: 0, bridges: 0 });
-  const [loaded, setLoaded] = useState<any>(null);
-
-  useEffect(() => {
-    Promise.all([
-      fetch("/data/buildings.geojson").then((r) => r.json()),
-      fetch("/data/critical.geojson").then((r) => r.json()),
-      fetch("/data/bridges.geojson").then((r) => r.json()),
-    ]).then(([b, c, br]) => setLoaded({ b, c, br }));
-  }, []);
-
-  useEffect(() => {
-    if (!loaded) return;
-    const b = countAffectedBuildings(loaded.b, twin.floodLevel).count;
-    const c = countAffectedPoints(loaded.c, twin.floodLevel, 300);
-    const br = countAffectedPoints(loaded.br, twin.floodLevel, 300);
-    setStats({ buildings: b, critical: c, bridges: br });
-  }, [twin.floodLevel, loaded]);
 
   const scenarioList: ScenarioKey[] = ["tr2", "tr5", "tr10", "tr25", "tr50", "tr100", "cc2050"];
   const active = scenarioList.find((k) => Math.abs(IDF[k].H - twin.floodLevel) < 0.05);
 
   return (
-    <aside className="pointer-events-auto absolute right-4 top-24 z-20 max-h-[calc(100vh-7rem)] w-[22rem] space-y-3 overflow-y-auto pr-1 text-sm">
+    <aside className="pointer-events-auto absolute right-4 top-20 z-20 max-h-[calc(100vh-6rem)] w-[22rem] space-y-3 overflow-y-auto pr-1 text-sm">
       <section className="rounded-2xl bg-ink/85 p-4 backdrop-blur-md ring-1 ring-white/10">
         <h2 className="mb-1 text-xs font-semibold uppercase tracking-widest text-cyan-300">
           Modelo HAND · Inundación fluvial
@@ -89,16 +74,20 @@ export default function ControlPanel() {
 
       <section className="rounded-2xl bg-ink/85 p-4 backdrop-blur-md ring-1 ring-white/10">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-cyan-300">
-          Exposición real (cruce HAND × OSM)
+          Pérdida económica estimada
         </h2>
-        <dl className="grid grid-cols-3 gap-2 text-center">
-          <Stat label="Edificios expuestos" value={stats.buildings.toLocaleString("es-CO")} />
-          <Stat label="Críticos expuestos" value={stats.critical.toString()} />
-          <Stat label="Puentes expuestos" value={stats.bridges.toString()} />
-        </dl>
-        <p className="mt-2 text-[10px] leading-snug text-slate-500">
-          Elementos con HAND ≤ {twin.floodLevel.toFixed(1)} m. Críticos: hospitales,
-          clínicas, escuelas, colegios, universidades, bomberos, policía, farmacias (OSM).
+        <div className="mb-1 text-2xl font-bold text-orange-300">
+          {stats.loss >= 1e12
+            ? `${(stats.loss / 1e12).toFixed(2)} billones`
+            : stats.loss >= 1e9
+            ? `${(stats.loss / 1e9).toFixed(0)} mil millones`
+            : `${(stats.loss / 1e6).toFixed(0)} millones`}
+          <span className="text-sm text-slate-400"> COP</span>
+        </div>
+        <p className="text-[10px] leading-snug text-slate-500">
+          Curva daño-profundidad HAZUS: ratio = min(0.95, 0.15·d + 0.08·d²).
+          Valor referencial El Poblado: 6.500.000 COP/m². Incluye {stats.buildings.toLocaleString("es-CO")} edificios
+          × área × pisos × daño.
         </p>
       </section>
 
