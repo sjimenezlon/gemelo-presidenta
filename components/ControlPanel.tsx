@@ -1,40 +1,51 @@
 "use client";
+import { useEffect, useState } from "react";
 import { twinStore, useTwin, type OverlayId } from "./store";
-import { estimateAffected } from "@/lib/flood";
-import SiataPanel from "./SiataPanel";
+import { IDF, type ScenarioKey, countAffectedBuildings } from "@/lib/flood";
 import { BASEMAPS, type BasemapId } from "./mapStyle";
 
-const OVERLAYS: { id: OverlayId; label: string; hint: string }[] = [
-  { id: "hot", label: "OSM Humanitario", hint: "Contexto urbano denso (edificios, calles)" },
-  { id: "nasa_precip", label: "NASA IMERG precipitación", hint: "Lluvia global GPM ~10km" },
-  { id: "esri_hillshade", label: "Hillshade Esri", hint: "Sombreado global de alta resolución" },
+const OVERLAYS: { id: OverlayId; label: string }[] = [
+  { id: "hot", label: "OSM Humanitario" },
+  { id: "nasa_precip", label: "NASA IMERG precipitación" },
+  { id: "esri_hillshade", label: "Hillshade Esri" },
 ];
-
-const scenarios = [
-  { id: "actual", label: "Actual", level: 0.4, desc: "Caudal base, época seca" },
-  { id: "tr25", label: "TR 25", level: 1.6, desc: "Lluvia intensa, retorno 25 años" },
-  { id: "tr100", label: "TR 100", level: 2.8, desc: "Evento extremo, retorno 100 años" },
-  { id: "cc2050", label: "CC 2050", level: 3.6, desc: "Escenario cambio climático RCP8.5" },
-] as const;
 
 export default function ControlPanel() {
   const twin = useTwin();
-  const stats = estimateAffected(twin.floodLevel);
+  const [stats, setStats] = useState<{ count: number; areaM2: number }>({ count: 0, areaM2: 0 });
+
+  // Cruce real edificios × HAND cada vez que cambia el nivel
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/data/buildings.geojson")
+      .then((r) => r.json())
+      .then((fc) => {
+        if (cancelled) return;
+        setStats(countAffectedBuildings(fc, twin.floodLevel));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [twin.floodLevel]);
+
+  const scenarioList: ScenarioKey[] = ["tr2", "tr5", "tr10", "tr25", "tr50", "tr100", "cc2050"];
+  const active = scenarioList.find((k) => Math.abs(IDF[k].H - twin.floodLevel) < 0.05);
 
   return (
-    <aside className="pointer-events-auto absolute right-4 top-24 z-20 w-80 space-y-3 text-sm">
+    <aside className="pointer-events-auto absolute right-4 top-24 z-20 max-h-[calc(100vh-7rem)] w-[22rem] space-y-3 overflow-y-auto pr-1 text-sm">
       <section className="rounded-2xl bg-ink/85 p-4 backdrop-blur-md ring-1 ring-white/10">
         <h2 className="mb-1 text-xs font-semibold uppercase tracking-widest text-cyan-300">
-          Simulación hidráulica
+          Modelo HAND · Inundación fluvial
         </h2>
         <p className="mb-3 text-[11px] text-slate-400">
-          Nivel del agua sobre el cauce (modelo planar 1D)
+          Height Above Nearest Drainage sobre DEM Mapzen Terrarium (~10 m). Una
+          celda se inunda si HAND ≤ nivel.
         </p>
         <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-2xl font-semibold text-cyan-200">
-            {twin.floodLevel.toFixed(1)} m
+          <span className="text-3xl font-semibold text-cyan-200">
+            {twin.floodLevel.toFixed(1)}<span className="text-lg"> m</span>
           </span>
-          <span className="text-[11px] text-slate-400">0 – 5 m</span>
+          <span className="text-[11px] text-slate-400">Nivel sobre cauce</span>
         </div>
         <input
           type="range"
@@ -45,36 +56,45 @@ export default function ControlPanel() {
           onChange={(e) => twinStore.set({ floodLevel: +e.target.value })}
           className="w-full accent-cyan-400"
         />
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {scenarios.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => twinStore.set({ scenario: s.id, floodLevel: s.level })}
-              className={`rounded-lg px-2 py-1.5 text-xs ring-1 transition ${
-                twin.scenario === s.id
-                  ? "bg-cyan-500/20 text-cyan-200 ring-cyan-400/60"
-                  : "bg-white/5 text-slate-300 ring-white/10 hover:bg-white/10"
-              }`}
-              title={s.desc}
-            >
-              {s.label}
-            </button>
-          ))}
+        <div className="mt-3 grid grid-cols-4 gap-1">
+          {scenarioList.map((k) => {
+            const s = IDF[k];
+            return (
+              <button
+                key={k}
+                onClick={() => twinStore.set({ scenario: k, floodLevel: s.H })}
+                className={`rounded-lg px-1.5 py-1.5 text-[10px] font-medium ring-1 transition ${
+                  active === k
+                    ? "bg-cyan-500/20 text-cyan-200 ring-cyan-400/60"
+                    : "bg-white/5 text-slate-300 ring-white/10 hover:bg-white/10"
+                }`}
+                title={`${s.mmh} mm/h — Q≈${s.Q} m³/s — H≈${s.H} m`}
+              >
+                {s.label}
+              </button>
+            );
+          })}
         </div>
+        {active && (
+          <div className="mt-3 grid grid-cols-3 gap-1 rounded-lg bg-cyan-500/10 p-2 text-center ring-1 ring-cyan-400/30">
+            <Mini label="Lluvia" value={`${IDF[active].mmh} mm/h`} />
+            <Mini label="Caudal Q" value={`${IDF[active].Q} m³/s`} />
+            <Mini label="Calado H" value={`${IDF[active].H} m`} />
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl bg-ink/85 p-4 backdrop-blur-md ring-1 ring-white/10">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-cyan-300">
-          Análisis de riesgo
+          Exposición real (cruce HAND × OSM)
         </h2>
         <dl className="grid grid-cols-3 gap-2 text-center">
-          <Stat label="Área (km²)" value={stats.areaKm2.toFixed(3)} />
-          <Stat label="Población" value={stats.population.toLocaleString("es-CO")} />
-          <Stat label="Edificios" value={stats.buildings.toLocaleString("es-CO")} />
+          <Stat label="Edificios expuestos" value={stats.count.toLocaleString("es-CO")} />
+          <Stat label="Área edificada (m²)" value={Math.round(stats.areaM2).toLocaleString("es-CO")} />
+          <Stat label="% del total" value={twin.buildingsTotal ? `${((stats.count / twin.buildingsTotal) * 100).toFixed(1)}%` : "—"} />
         </dl>
         <p className="mt-2 text-[10px] leading-snug text-slate-500">
-          Estimación basada en densidad poblacional El Poblado (~8.500 hab/km²).
-          Para precisión usar catastro Medellín y DEM LiDAR AMVA.
+          Edificios con HAND ≤ nivel Y a ≤400 m del cauce. De {twin.buildingsTotal.toLocaleString("es-CO")} edificaciones OSM en el área de estudio.
         </p>
       </section>
 
@@ -98,7 +118,7 @@ export default function ControlPanel() {
           ))}
         </div>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-cyan-300">
-          Overlays temáticos
+          Overlays
         </h2>
         {OVERLAYS.map((o) => (
           <Toggle
@@ -111,14 +131,20 @@ export default function ControlPanel() {
           />
         ))}
         <h2 className="mb-2 mt-3 text-xs font-semibold uppercase tracking-widest text-cyan-300">
-          Capas vectoriales
+          Capas
         </h2>
-        <Toggle label="Cuenca hidrográfica" value={twin.showCuenca} onChange={(v) => twinStore.set({ showCuenca: v })} />
-        <Toggle label="Estaciones SIATA" value={twin.showSiata} onChange={(v) => twinStore.set({ showSiata: v })} />
-        <Toggle label="Edificaciones" value={twin.showBuildings} onChange={(v) => twinStore.set({ showBuildings: v })} />
+        <Toggle label="Edificaciones 3D" value={twin.showBuildings} onChange={(v) => twinStore.set({ showBuildings: v })} />
       </section>
 
-      <SiataPanel />
+      {twin.meta && (
+        <section className="rounded-2xl bg-ink/85 p-3 text-[10px] leading-relaxed text-slate-400 ring-1 ring-white/10">
+          <div className="mb-1 text-cyan-300/80">Fuentes del modelo</div>
+          DEM: {twin.meta.dem_source} · z{twin.meta.dem_zoom} (~{twin.meta.dem_resolution_m_approx} m/px)<br/>
+          Cauce: {twin.meta.cauce_points} pts · {twin.meta.cauce_elev_min?.toFixed?.(0)}–{twin.meta.cauce_elev_max?.toFixed?.(0)} m<br/>
+          Modelo: {twin.meta.model}<br/>
+          Ref: {twin.meta.method_ref}
+        </section>
+      )}
     </aside>
   );
 }
@@ -131,7 +157,14 @@ function Stat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[11px] font-semibold text-cyan-200">{value}</div>
+      <div className="text-[9px] uppercase text-slate-400">{label}</div>
+    </div>
+  );
+}
 function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="mb-1 flex cursor-pointer items-center justify-between">

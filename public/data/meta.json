@@ -1,0 +1,30 @@
+{
+  "bbox": [
+    -75.585,
+    6.195,
+    -75.525,
+    6.22
+  ],
+  "dem_source": "Mapzen Terrarium via AWS Open Data",
+  "dem_zoom": 14,
+  "dem_resolution_m_approx": 9.5,
+  "cauce_points": 368,
+  "cauce_elev_min": 1489.9765625,
+  "cauce_elev_max": 2595.76953125,
+  "grid_points": 2802,
+  "buildings_total": 4729,
+  "affected_by_level": {
+    "0.5": 517,
+    "1.0": 551,
+    "1.5": 587,
+    "2.0": 612,
+    "2.5": 646,
+    "3.0": 681,
+    "3.5": 707,
+    "4.0": 743,
+    "4.5": 776,
+    "5.0": 802
+  },
+  "model": "HAND (Height Above Nearest Drainage)",
+  "method_ref": "Renn\u00f3 et al. 2008; Nobre et al. 2011"
+}

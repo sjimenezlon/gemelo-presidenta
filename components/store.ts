@@ -10,9 +10,11 @@ export type TwinState = {
   showCuenca: boolean;
   showBuildings: boolean;
   showSiata: boolean;
-  scenario: "actual" | "tr25" | "tr100" | "cc2050";
+  scenario: "actual" | "tr2" | "tr5" | "tr10" | "tr25" | "tr50" | "tr100" | "cc2050";
   basemap: BasemapId;
   overlays: Record<OverlayId, boolean>;
+  buildingsTotal: number;
+  meta: any;
 };
 
 const initial: TwinState = {
@@ -23,6 +25,8 @@ const initial: TwinState = {
   scenario: "actual",
   basemap: "dark",
   overlays: { hot: false, nasa_precip: false, esri_hillshade: false },
+  buildingsTotal: 0,
+  meta: null,
 };
 
 let state: TwinState = { ...initial };
