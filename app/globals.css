@@ -4,3 +4,24 @@
 
 html, body { height: 100%; margin: 0; background: #0b1120; color: #e5e7eb; font-family: ui-sans-serif, system-ui, sans-serif; }
 .maplibregl-ctrl-attrib { font-size: 10px; }
+
+/* ---- Report print layout ---- */
+.report-root { background: #ffffff; color: #0f172a; font-family: ui-sans-serif, system-ui, sans-serif; }
+.report-root h1,.report-root h2,.report-root h3 { color: #0f172a; }
+.report-root .accent { color: #0369a1; }
+.report-root .muted { color: #64748b; }
+.report-root table { border-collapse: collapse; width: 100%; font-size: 11px; }
+.report-root th, .report-root td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+.report-root th { background: #f1f5f9; font-weight: 600; color: #334155; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+.report-root td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+@media print {
+  @page { size: A4; margin: 1.2cm 1.4cm; }
+  body { background: #ffffff !important; }
+  .no-print { display: none !important; }
+  .report-root { padding: 0; }
+  .report-root section { break-inside: avoid; }
+  .report-root h2 { break-after: avoid; }
+  .report-root .page-break { break-before: page; }
+}
+

@@ -82,7 +82,7 @@ export default function AppShell() {
   return (
     <main className="relative h-screen w-screen overflow-hidden">
       <DigitalTwinMap mapRef={mapRef} />
-      <header className="pointer-events-none absolute left-0 right-0 top-0 z-20 p-4">
+      <header className="pointer-events-none absolute left-0 right-0 top-0 z-20 flex items-start justify-between p-4">
         <div className="pointer-events-auto inline-block rounded-xl bg-ink/80 px-4 py-2 backdrop-blur-md ring-1 ring-white/10">
           <div className="text-xs uppercase tracking-widest text-cyan-300/80">
             Gemelo Digital GeoAI
@@ -91,6 +91,17 @@ export default function AppShell() {
             Quebrada La Presidenta · El Poblado, Medellín
           </h1>
         </div>
+        <a
+          href="/reporte"
+          target="_blank"
+          className="pointer-events-auto flex items-center gap-2 rounded-xl bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-200 backdrop-blur-md ring-1 ring-cyan-400/40 transition hover:bg-cyan-500/30"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          Reporte ejecutivo
+        </a>
       </header>
       <KpiBar {...stats} />
       <DecisionPanel critical={criticalList} onFly={flyTo} />

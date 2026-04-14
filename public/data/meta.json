@@ -95,5 +95,8 @@
     "4.5": 50279,
     "5.0": 67361
   },
-  "hexagons_total": 36
+  "hexagons_total": 36,
+  "comuna_14_area_km2": 14.78,
+  "comuna_14_population_kontur": 224780,
+  "comuna_14_hexagons": 14
 }

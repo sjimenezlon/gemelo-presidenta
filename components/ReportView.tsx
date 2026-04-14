@@ -1,0 +1,489 @@
+"use client";
+import { useEffect, useMemo, useState } from "react";
+import { IDF, type ScenarioKey } from "@/lib/flood";
+
+type Critical = {
+  name: string;
+  kind: string;
+  hand: number;
+  dist: number;
+  lon: number;
+  lat: number;
+};
+
+export default function ReportView() {
+  const [meta, setMeta] = useState<any>(null);
+  const [critical, setCritical] = useState<Critical[]>([]);
+  const [ready, setReady] = useState(false);
+  const [generatedAt] = useState(() => new Date());
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/data/meta.json").then((r) => r.json()),
+      fetch("/data/critical.geojson").then((r) => r.json()),
+    ])
+      .then(([m, c]) => {
+        setMeta(m);
+        setCritical(
+          (c.features || []).map((f: any) => ({
+            name: f.properties?.name || "",
+            kind: f.properties?.kind || "",
+            hand: f.properties?.hand ?? 999,
+            dist: f.properties?.dist_grid_m ?? 999,
+            lon: f.geometry.coordinates[0],
+            lat: f.geometry.coordinates[1],
+          })),
+        );
+        setReady(true);
+      })
+      .catch(() => setReady(true));
+  }, []);
+
+  const exposedAtTR100 = useMemo(
+    () =>
+      critical
+        .filter((c) => c.hand <= IDF.tr100.H && c.dist < 300)
+        .sort((a, b) => a.hand - b.hand),
+    [critical],
+  );
+
+  const scenarioRows: ScenarioKey[] = [
+    "tr2",
+    "tr5",
+    "tr10",
+    "tr25",
+    "tr50",
+    "tr100",
+    "cc2050",
+  ];
+
+  const fmtCop = (n: number) =>
+    n >= 1e12 ? `${(n / 1e12).toFixed(2)} B` : n >= 1e9 ? `${(n / 1e9).toFixed(0)} mil M` : `${(n / 1e6).toFixed(0)} M`;
+
+  const nearestKey = (target: number, dict: Record<string, number>) => {
+    const keys = Object.keys(dict).map(Number).sort((a, b) => a - b);
+    let best = keys[0];
+    let bd = Math.abs(target - best);
+    for (const k of keys) {
+      const d = Math.abs(target - k);
+      if (d < bd) {
+        bd = d;
+        best = k;
+      }
+    }
+    return best.toFixed(1);
+  };
+
+  if (!ready) return null;
+
+  const fecha = generatedAt.toLocaleDateString("es-CO", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  return (
+    <div className="report-root min-h-screen px-[5%] py-8 md:px-[10%]">
+      {/* Print bar */}
+      <div className="no-print sticky top-0 z-50 mb-6 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+        <div>
+          <strong>Reporte ejecutivo</strong> · Usa <kbd className="rounded border border-slate-300 bg-white px-1">⌘/Ctrl + P</kbd> para exportar a PDF.
+        </div>
+        <div className="flex gap-2">
+          <a
+            href="/"
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-100"
+          >
+            ← Volver al mapa
+          </a>
+          <button
+            onClick={() => window.print()}
+            className="rounded-md bg-sky-600 px-3 py-1.5 font-medium text-white hover:bg-sky-700"
+          >
+            Imprimir / PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Header */}
+      <header className="mb-6 border-b-2 border-sky-700 pb-4">
+        <div className="muted text-xs uppercase tracking-widest">
+          Gemelo Digital GeoAI · DENSURBAM · Urbam EAFIT
+        </div>
+        <h1 className="mt-1 text-3xl font-bold text-slate-900">
+          Evaluación de riesgo por inundación
+        </h1>
+        <h2 className="text-xl font-semibold text-sky-700">
+          Quebrada La Presidenta — Comuna 14 El Poblado, Medellín
+        </h2>
+        <div className="mt-2 flex justify-between text-xs text-slate-500">
+          <span>Reporte generado: <strong className="text-slate-700">{fecha}</strong></span>
+          <span>Snapshot del modelo: <strong className="text-slate-700">{meta?.snapshot_date || "2026-04-14"}</strong></span>
+        </div>
+      </header>
+
+      {/* 1. Resumen ejecutivo */}
+      <section className="mb-6">
+        <h2 className="mb-2 text-lg font-semibold accent">
+          1. Resumen ejecutivo
+        </h2>
+        <p className="mb-3 text-sm leading-relaxed text-slate-700">
+          Este reporte presenta los resultados de la modelación de riesgo por inundación
+          fluvial para la Quebrada La Presidenta (Comuna 14, El Poblado) construida con
+          el método <strong>HAND (Height Above Nearest Drainage)</strong> sobre un modelo
+          digital de elevación de ~10 m, cartografía OpenStreetMap 2026-04 y datos de
+          población Kontur 2023-11. El modelo evalúa siete escenarios de lluvia extrema
+          (TR 2 a TR 100 y cambio climático 2050) y cuantifica la exposición de
+          edificaciones, equipamientos críticos, puentes y población.
+        </p>
+
+        <div className="mb-4 grid grid-cols-5 gap-2">
+          <Kpi label="Área de estudio" value={`${meta?.comuna_14_area_km2 ?? "?"} km²`} sub="Comuna 14" />
+          <Kpi label="Población" value={meta?.comuna_14_population_kontur?.toLocaleString("es-CO") ?? "—"} sub="Kontur 2023" />
+          <Kpi label="Edificios" value={meta?.buildings_total?.toLocaleString("es-CO") ?? "—"} sub="OSM" />
+          <Kpi label="Críticos" value={meta?.critical_total ?? 148} sub="hospitales, escuelas…" />
+          <Kpi label="Puentes" value={meta?.bridges_total ?? 213} sub="OSM" />
+        </div>
+
+        <div className="rounded-lg border border-sky-100 bg-sky-50 p-4 text-sm">
+          <div className="mb-2 font-semibold text-sky-900">Hallazgos principales</div>
+          <ul className="list-inside list-disc space-y-1 text-slate-700">
+            <li>
+              Bajo un escenario <strong>TR 100 (lluvia 130 mm/h, calado 2.9 m)</strong>,
+              se estiman <strong>~{meta?.affected_by_level?.["3.0"] || "?"} edificios</strong>{" "}
+              y <strong>~{meta?.critical_by_level?.["3.0"] || "?"} equipamientos críticos</strong>{" "}
+              expuestos.
+            </li>
+            <li>
+              Pérdida económica estimada para TR 100: <strong>{fmtCop(meta?.loss_by_level_cop?.["3.0"] || 0)} COP</strong>{" "}
+              (curva de daño HAZUS × precio referencial 6.500.000 COP/m²).
+            </li>
+            <li>
+              Bajo cambio climático <strong>CC 2050 (+20% intensidad, H=3.6 m)</strong>, la
+              exposición aumenta a <strong>~{meta?.affected_by_level?.["3.5"] || "?"} edificios</strong>.
+            </li>
+            <li>
+              Población potencialmente afectada: <strong>~{meta?.population_by_level?.["3.0"]?.toLocaleString("es-CO") || "—"}</strong> habitantes
+              (límite inferior, resolución Kontur ~460 m).
+            </li>
+            <li>
+              {exposedAtTR100.length} equipamientos críticos identificados con nombre se
+              encuentran en zona de inundación bajo TR 100.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      {/* 2. Escenarios */}
+      <section className="mb-6">
+        <h2 className="mb-2 text-lg font-semibold accent">
+          2. Escenarios por periodo de retorno
+        </h2>
+        <p className="mb-2 text-xs text-slate-600">
+          Curvas IDF referenciales del POMCA AMVA. El calado H se obtuvo combinando el
+          método racional Q=CiA/3.6 (C=0.75, A=7.2 km²) con la ecuación de Manning sobre
+          un canal rectangular promedio de La Presidenta (b=6 m, n=0.035, S=0.065).
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Escenario</th>
+              <th className="num">Lluvia mm/h</th>
+              <th className="num">Caudal m³/s</th>
+              <th className="num">Calado H (m)</th>
+              <th className="num">Edificios</th>
+              <th className="num">Críticos</th>
+              <th className="num">Puentes</th>
+              <th className="num">Pob.</th>
+              <th className="num">Pérdida COP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {scenarioRows.map((k) => {
+              const s = IDF[k];
+              const lk = nearestKey(s.H, meta?.affected_by_level || {});
+              const ed = meta?.affected_by_level?.[lk] || 0;
+              const cr = meta?.critical_by_level?.[lk] || 0;
+              const br = meta?.bridges_by_level?.[lk] || 0;
+              const pp = meta?.population_by_level?.[lk] || 0;
+              const ls = meta?.loss_by_level_cop?.[lk] || 0;
+              return (
+                <tr key={k}>
+                  <td className="font-semibold text-sky-700">{s.label}</td>
+                  <td className="num">{s.mmh}</td>
+                  <td className="num">{s.Q}</td>
+                  <td className="num">{s.H.toFixed(1)}</td>
+                  <td className="num">{ed}</td>
+                  <td className="num">{cr}</td>
+                  <td className="num">{br}</td>
+                  <td className="num">{pp.toLocaleString("es-CO")}</td>
+                  <td className="num">{fmtCop(ls)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </section>
+
+      {/* 3. Equipamientos críticos expuestos */}
+      <section className="mb-6">
+        <h2 className="mb-2 text-lg font-semibold accent">
+          3. Equipamientos críticos en zona de inundación (referencia TR 100)
+        </h2>
+        <p className="mb-2 text-xs text-slate-600">
+          Listado priorizado por HAND creciente (menor HAND ⇒ mayor exposición). Coordenadas
+          en EPSG:4326.
+        </p>
+        {exposedAtTR100.length === 0 ? (
+          <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            ✓ Ningún equipamiento crítico con nombre en zona de inundación bajo TR 100.
+          </div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th className="num">HAND (m)</th>
+                <th className="num">Lon</th>
+                <th className="num">Lat</th>
+              </tr>
+            </thead>
+            <tbody>
+              {exposedAtTR100.slice(0, 30).map((c, i) => (
+                <tr key={i}>
+                  <td className="text-slate-500">{i + 1}</td>
+                  <td className="font-medium text-slate-800">
+                    {c.name || <em className="text-slate-400">sin nombre OSM</em>}
+                  </td>
+                  <td>{c.kind}</td>
+                  <td className="num font-semibold text-red-600">{c.hand.toFixed(2)}</td>
+                  <td className="num muted">{c.lon.toFixed(5)}</td>
+                  <td className="num muted">{c.lat.toFixed(5)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      {/* 4. Protocolo de respuesta */}
+      <section className="mb-6">
+        <h2 className="mb-2 text-lg font-semibold accent">
+          4. Protocolo sugerido de respuesta
+        </h2>
+        <p className="mb-3 text-xs text-slate-600">
+          Protocolo referencial basado en DAGRD Medellín y Ley 1523/2012 de gestión del
+          riesgo. Debe armonizarse con el Plan Municipal de Gestión del Riesgo vigente.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <ProtocolCard
+            color="green"
+            title="Verde — operación normal (H < 1 m · TR ≤ 5)"
+            items={[
+              "Mantenimiento trimestral de rejillas y cámaras del tramo cubierto",
+              "Inspección de estructuras en Parque La Presidenta",
+              "Verificación de calibración estación SIATA 201",
+              "Campañas de sensibilización vecinal en HAND ≤ 0.5 m",
+            ]}
+          />
+          <ProtocolCard
+            color="yellow"
+            title="Amarillo — alerta preventiva (1 m ≤ H < 2 m · TR 5–25)"
+            items={[
+              "Notificación a administraciones de edificios expuestos",
+              "Cierre preventivo de puentes con HAND ≤ 1 m",
+              "Despliegue de personal EPM para despeje de drenajes",
+              "Evacuación preventiva de primer piso en HAND ≤ 0.8 m",
+              "Lista roja para hospitales y clínicas en zona expuesta",
+            ]}
+          />
+          <ProtocolCard
+            color="orange"
+            title="Naranja — alerta intensa (2 m ≤ H < 3 m · TR 25–50)"
+            items={[
+              "Activación Comité Municipal de Emergencia (CMGRD)",
+              "Movilización de equipos de rescate acuático",
+              "Evacuación obligatoria de primer piso en todo el corredor",
+              "Traslado de pacientes ambulatorios de clínicas expuestas",
+              "Cierre total de puentes con HAND ≤ 2 m",
+              "Apertura de albergues en colegios sobre 1600 m.s.n.m.",
+            ]}
+          />
+          <ProtocolCard
+            color="red"
+            title="Roja — emergencia extrema (H ≥ 3 m · TR ≥ 100)"
+            items={[
+              "Coordinación AMVA + Alcaldía + SIATA + UNGRD",
+              "Evacuación total en franja ≤ 400 m del cauce",
+              "Corte de energía en edificios con HAND ≤ 3 m",
+              "Cierre de válvulas de gas en zona crítica",
+              "Despliegue Bomberos + Defensa Civil + helicóptero",
+              "Solicitud de recursos nacionales si pérdida > 2 billones COP",
+            ]}
+          />
+        </div>
+      </section>
+
+      <div className="page-break" />
+
+      {/* 5. Metodología */}
+      <section className="mb-6">
+        <h2 className="mb-2 text-lg font-semibold accent">5. Metodología</h2>
+        <div className="space-y-2 text-sm text-slate-700">
+          <p>
+            <strong>Modelo HAND</strong> (Height Above Nearest Drainage): para cada celda
+            del área de estudio se calcula la diferencia en metros entre su elevación y la
+            elevación de su punto más cercano sobre el cauce. Una celda se considera
+            inundada bajo un escenario de calado H si su HAND es menor o igual a H.
+          </p>
+          <p className="text-xs italic text-slate-500">
+            Ref: Rennó C.D. et al. (2008) <em>HAND, a new terrain descriptor using
+            SRTM-DEM</em>; Nobre A.D. et al. (2011) <em>Height Above the Nearest Drainage</em>.
+            Remote Sensing of Environment.
+          </p>
+          <p>
+            El DEM se construyó a partir de tiles Mapzen Terrarium z14 (~{meta?.dem_resolution_m_approx || 10} m/px,
+            rango {meta?.cauce_elev_min?.toFixed?.(0) || "—"} a {meta?.cauce_elev_max?.toFixed?.(0) || "—"} m.s.n.m.), el cauce se obtuvo
+            de OpenStreetMap con {meta?.cauce_points || "—"} puntos muestreados a lo largo de los{" "}
+            15 segmentos reales. El grid de HAND contiene {meta?.grid_points || "—"} puntos
+            dentro de la potencial llanura de inundación (radio 350 m del cauce).
+          </p>
+          <p>
+            Las curvas de daño siguen una forma HAZUS simplificada:{" "}
+            <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">ratio(d) = min(0.95, 0.15·d + 0.08·d²)</code>,
+            donde d es la profundidad dentro del edificio. El valor por metro cuadrado
+            utilizado es el precio referencial de El Poblado 2026:{" "}
+            <strong>{(meta?.price_per_m2_cop || 6500000).toLocaleString("es-CO")} COP/m²</strong>.
+          </p>
+        </div>
+      </section>
+
+      {/* 6. Fuentes de datos */}
+      <section className="mb-6">
+        <h2 className="mb-2 text-lg font-semibold accent">6. Fuentes de datos</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Capa</th>
+              <th>Fuente</th>
+              <th>Año / versión</th>
+              <th>Licencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>DEM (topografía)</td><td>Mapzen Terrarium via AWS Open Data</td><td>2022 (composite)</td><td>CC0 / ODbL</td></tr>
+            <tr><td>Cauce La Presidenta</td><td>OpenStreetMap (Overpass API)</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Río Medellín</td><td>OpenStreetMap</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Edificaciones (4.729)</td><td>OpenStreetMap</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Equip. críticos (148)</td><td>OpenStreetMap amenities</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Puentes/túneles (213)</td><td>OpenStreetMap bridges</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Población (H3 hex)</td><td>Kontur Population Colombia</td><td>2023-11-01</td><td>CC BY 4.0</td></tr>
+            <tr><td>Comuna 14 boundary</td><td>OpenStreetMap relation</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Límite municipal</td><td>GADM v4.1</td><td>2022</td><td>GADM non-commercial</td></tr>
+            <tr><td>Lluvia histórica</td><td>Open-Meteo ERA5 reanalysis</td><td>2020–2026</td><td>CC BY 4.0</td></tr>
+            <tr><td>Cobertura suelo</td><td>ESA WorldCover 10m</td><td>2021</td><td>CC BY 4.0</td></tr>
+            <tr><td>Imagen óptica</td><td>Sentinel-2 cloudless EOX</td><td>2023</td><td>CC BY 4.0 S-hub</td></tr>
+            <tr><td>Curvas IDF</td><td>POMCA AMVA — valores referenciales</td><td>vigente</td><td>Pública</td></tr>
+            <tr><td>Curvas de daño</td><td>HAZUS simplified</td><td>FEMA</td><td>Pública</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      {/* 7. Limitaciones */}
+      <section className="mb-6">
+        <h2 className="mb-2 text-lg font-semibold accent">7. Limitaciones y trabajos futuros</h2>
+        <div className="space-y-2 text-sm text-slate-700">
+          <p>
+            <strong>Resolución del DEM.</strong> El DEM Terrarium (~10 m) es adecuado para
+            planificación estratégica pero insuficiente para diseño hidráulico de obras. Para
+            precisión ingenieril se requiere LiDAR AMVA 1 m.
+          </p>
+          <p>
+            <strong>Modelo hidráulico.</strong> El HAND es un modelo planar que sobreestima
+            inundación en cauces estrechos y la subestima en confluencias. Para análisis
+            detallado se recomienda correr HEC-RAS 2D o LISFLOOD-FP sobre el LiDAR.
+          </p>
+          <p>
+            <strong>Curvas IDF.</strong> Los valores utilizados son referenciales del POMCA
+            AMVA. Para calibración local se recomienda usar series de precipitación SIATA
+            (estaciones Olaya Herrera, Nutibara, La Palma) con ajuste Gumbel.
+          </p>
+          <p>
+            <strong>Resolución de la población.</strong> Kontur H3 res 8 tiene celdas de
+            ~460 m, por lo que la población afectada se estima en bloques. Para mayor
+            precisión se requiere catastro de Medellín con habitantes por edificio.
+          </p>
+          <p>
+            <strong>Curvas de daño.</strong> HAZUS está calibrada para edificaciones
+            norteamericanas. Requiere ajuste por tipología colombiana (adobe, mampostería no
+            confinada, concreto reforzado).
+          </p>
+          <p>
+            <strong>Uso recomendado.</strong> Este gemelo es apto para <strong>planificación
+            estratégica, priorización de intervenciones y comunicación con stakeholders</strong>.
+            NO es apto para diseño hidráulico de canalizaciones ni como base única para
+            decisiones de evacuación en tiempo real.
+          </p>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="mt-8 border-t-2 border-slate-200 pt-4 text-center text-xs text-slate-500">
+        <div>
+          Gemelo Digital GeoAI · Quebrada La Presidenta · DENSURBAM · Urbam EAFIT
+        </div>
+        <div className="mt-1">
+          Generado con Next.js + MapLibre + HAND model ·{" "}
+          <a href="https://gemelo-presidenta.vercel.app" className="underline">
+            gemelo-presidenta.vercel.app
+          </a>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function Kpi({ label, value, sub }: { label: string; value: string | number; sub: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+      <div className="text-[9px] font-medium uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="text-lg font-bold text-sky-700">{value}</div>
+      <div className="text-[9px] text-slate-400">{sub}</div>
+    </div>
+  );
+}
+
+function ProtocolCard({
+  color,
+  title,
+  items,
+}: {
+  color: "green" | "yellow" | "orange" | "red";
+  title: string;
+  items: string[];
+}) {
+  const bgs = {
+    green: "border-emerald-200 bg-emerald-50",
+    yellow: "border-amber-200 bg-amber-50",
+    orange: "border-orange-200 bg-orange-50",
+    red: "border-red-200 bg-red-50",
+  };
+  const titles = {
+    green: "text-emerald-800",
+    yellow: "text-amber-800",
+    orange: "text-orange-800",
+    red: "text-red-800",
+  };
+  return (
+    <div className={`rounded-lg border p-3 ${bgs[color]}`}>
+      <div className={`mb-1 text-xs font-bold uppercase ${titles[color]}`}>{title}</div>
+      <ul className="list-inside list-disc space-y-0.5 text-[11px] text-slate-700">
+        {items.map((x, i) => (
+          <li key={i}>{x}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
