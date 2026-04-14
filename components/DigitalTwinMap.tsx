@@ -32,10 +32,12 @@ export default function DigitalTwinMap() {
     map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
 
     let markersDone = false;
+    let installing = false;
 
     const installLayers = async () => {
+      if (installing || map.getSource("rio")) return;
+      installing = true;
       try {
-        if (map.getSource("presidenta")) return;
         const [presidenta, rio, buildings, handGrid, meta] = await Promise.all([
           fetch("/data/presidenta.geojson").then((r) => r.json()),
           fetch("/data/rio_medellin.geojson").then((r) => r.json()),
@@ -164,6 +166,8 @@ export default function DigitalTwinMap() {
       } catch (err: any) {
         console.error("installLayers error", err);
         setError(String(err?.message || err));
+      } finally {
+        installing = false;
       }
     };
 
