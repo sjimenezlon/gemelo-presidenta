@@ -43,15 +43,18 @@ export default function DigitalTwinMap({
       if (installing || map.getSource("rio")) return;
       installing = true;
       try {
-        const [presidenta, rio, buildings, handGrid, meta, critical, bridges] = await Promise.all([
-          fetch("/data/presidenta.geojson").then((r) => r.json()),
-          fetch("/data/rio_medellin.geojson").then((r) => r.json()),
-          fetch("/data/buildings.geojson").then((r) => r.json()),
-          fetch("/data/hand_grid.geojson").then((r) => r.json()),
-          fetch("/data/meta.json").then((r) => r.json()),
-          fetch("/data/critical.geojson").then((r) => r.json()),
-          fetch("/data/bridges.geojson").then((r) => r.json()),
-        ]);
+        const [presidenta, rio, buildings, handGrid, meta, critical, bridges, kontur, boundary] =
+          await Promise.all([
+            fetch("/data/presidenta.geojson").then((r) => r.json()),
+            fetch("/data/rio_medellin.geojson").then((r) => r.json()),
+            fetch("/data/buildings.geojson").then((r) => r.json()),
+            fetch("/data/hand_grid.geojson").then((r) => r.json()),
+            fetch("/data/meta.json").then((r) => r.json()),
+            fetch("/data/critical.geojson").then((r) => r.json()),
+            fetch("/data/bridges.geojson").then((r) => r.json()),
+            fetch("/data/kontur_pop.geojson").then((r) => r.json()),
+            fetch("/data/medellin_boundary.geojson").then((r) => r.json()).catch(() => null),
+          ]);
         handGridRef.current = handGrid;
         twinStore.set({ buildingsTotal: buildings.features.length, meta });
 
@@ -287,7 +290,20 @@ export default function DigitalTwinMap({
         "#fb923c",
       ]);
     }
-  }, [twin.floodLevel, twin.showBuildings]);
+    if (map.getLayer("kontur-pt")) {
+      map.setPaintProperty("kontur-pt", "circle-color", [
+        "case",
+        ["<=", ["get", "hand"], twin.floodLevel],
+        "#ef4444",
+        "#a855f7",
+      ]);
+      map.setLayoutProperty(
+        "kontur-pt",
+        "visibility",
+        twin.showKontur ? "visible" : "none",
+      );
+    }
+  }, [twin.floodLevel, twin.showBuildings, twin.showKontur]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -310,6 +326,7 @@ export default function DigitalTwinMap({
     setVis("overlay-hot", twin.overlays.hot);
     setVis("overlay-nasa-precip", twin.overlays.nasa_precip);
     setVis("overlay-esri-hillshade", twin.overlays.esri_hillshade);
+    setVis("overlay-worldcover", twin.overlays.worldcover);
   }, [twin.overlays, twin.basemap]);
 
   return (

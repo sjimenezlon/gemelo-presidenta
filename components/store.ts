@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 
 import type { BasemapId } from "./mapStyle";
 
-export type OverlayId = "hot" | "nasa_precip" | "esri_hillshade";
+export type OverlayId = "hot" | "nasa_precip" | "esri_hillshade" | "worldcover";
 
 export type TwinState = {
   floodLevel: number; // metros sobre cauce
@@ -15,6 +15,7 @@ export type TwinState = {
   overlays: Record<OverlayId, boolean>;
   buildingsTotal: number;
   meta: any;
+  showKontur: boolean;
 };
 
 const initial: TwinState = {
@@ -24,9 +25,10 @@ const initial: TwinState = {
   showSiata: true,
   scenario: "actual",
   basemap: "dark",
-  overlays: { hot: false, nasa_precip: false, esri_hillshade: false },
+  overlays: { hot: false, nasa_precip: false, esri_hillshade: false, worldcover: false },
   buildingsTotal: 0,
   meta: null,
+  showKontur: false,
 };
 
 let state: TwinState = { ...initial };

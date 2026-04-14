@@ -7,12 +7,13 @@ const OVERLAYS: { id: OverlayId; label: string }[] = [
   { id: "hot", label: "OSM Humanitario" },
   { id: "nasa_precip", label: "NASA IMERG precipitación" },
   { id: "esri_hillshade", label: "Hillshade Esri" },
+  { id: "worldcover", label: "ESA WorldCover 2021 (10m)" },
 ];
 
 export default function ControlPanel({
   stats,
 }: {
-  stats: { buildings: number; critical: number; bridges: number; loss: number };
+  stats: { buildings: number; critical: number; bridges: number; loss: number; population: number };
 }) {
   const twin = useTwin();
 
@@ -143,6 +144,7 @@ export default function ControlPanel({
           Capas
         </h2>
         <Toggle label="Edificaciones 3D" value={twin.showBuildings} onChange={(v) => twinStore.set({ showBuildings: v })} />
+        <Toggle label="Población Kontur (hex H3)" value={twin.showKontur} onChange={(v) => twinStore.set({ showKontur: v })} />
       </section>
 
       {twin.meta && (

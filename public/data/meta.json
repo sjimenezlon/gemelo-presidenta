@@ -80,5 +80,20 @@
   "method_ref": "Renn\u00f3 et al. 2008; Nobre et al. 2011",
   "era5_max_day_mm": 58.4,
   "era5_max_hour_mmh": 15.8,
-  "rainfall_source": "Open-Meteo ERA5 2020-2026"
+  "rainfall_source": "Open-Meteo ERA5 2020-2026",
+  "population_source": "Kontur Population Colombia 2023-11-01 (H3 res 8, ~460m hex)",
+  "population_total_bbox": 299924,
+  "population_by_level": {
+    "0.5": 38671,
+    "1.0": 38671,
+    "1.5": 38671,
+    "2.0": 38671,
+    "2.5": 38671,
+    "3.0": 38671,
+    "3.5": 38671,
+    "4.0": 38671,
+    "4.5": 50279,
+    "5.0": 67361
+  },
+  "hexagons_total": 36
 }

@@ -9,6 +9,7 @@ export default function Legend() {
     { color: "#60a5fa", label: "Mancha de inundación (HAND)", shape: "sq" },
     { color: "#fbbf24", label: "Equipamiento crítico", shape: "circle" },
     { color: "#fb923c", label: "Puentes / túneles", shape: "line" },
+    { color: "#a855f7", label: "Hex. población Kontur", shape: "circle" },
   ];
   return (
     <div className="pointer-events-auto absolute left-4 bottom-16 z-20 w-60 rounded-xl bg-ink/85 p-3 text-[11px] backdrop-blur-md ring-1 ring-white/10">

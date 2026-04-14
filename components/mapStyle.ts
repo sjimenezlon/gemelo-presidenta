@@ -1,6 +1,6 @@
 import type { StyleSpecification, RasterSourceSpecification } from "maplibre-gl";
 
-export type BasemapId = "dark" | "satellite" | "topo" | "voyager";
+export type BasemapId = "dark" | "satellite" | "sentinel" | "topo" | "voyager";
 
 export const BASEMAPS: Record<
   BasemapId,
@@ -21,7 +21,7 @@ export const BASEMAPS: Record<
     },
   },
   satellite: {
-    label: "Satelital (ESRI)",
+    label: "Satelital Esri",
     dark: true,
     source: {
       type: "raster",
@@ -30,6 +30,18 @@ export const BASEMAPS: Record<
       ],
       tileSize: 256,
       attribution: "Imagery © Esri, Maxar, Earthstar Geographics",
+    },
+  },
+  sentinel: {
+    label: "Sentinel-2 2023",
+    dark: true,
+    source: {
+      type: "raster",
+      tiles: [
+        "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/g/{z}/{y}/{x}.jpg",
+      ],
+      tileSize: 256,
+      attribution: "Sentinel-2 cloudless 2023 © EOX IT Services",
     },
   },
   topo: {
@@ -108,6 +120,15 @@ export function buildStyle(basemap: BasemapId): StyleSpecification {
         tileSize: 256,
         attribution: "Hillshade © Esri",
       },
+      // Overlay: ESA WorldCover 2021 — clasificación cobertura 10m
+      worldcover: {
+        type: "raster",
+        tiles: [
+          "https://services.terrascope.be/wmts/v2?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=WORLDCOVER_2021_MAP&STYLE=default&TILEMATRIXSET=EPSG:3857&TILEMATRIX=EPSG:3857:{z}&TILEROW={y}&TILECOL={x}&FORMAT=image%2Fpng",
+        ],
+        tileSize: 256,
+        attribution: "ESA WorldCover 2021",
+      },
       // Overlay: Etiquetas (para satélite)
       esri_labels: {
         type: "raster",
@@ -151,6 +172,13 @@ export function buildStyle(basemap: BasemapId): StyleSpecification {
         source: "nasa_precip",
         layout: { visibility: "none" },
         paint: { "raster-opacity": 0.6 },
+      },
+      {
+        id: "overlay-worldcover",
+        type: "raster",
+        source: "worldcover",
+        layout: { visibility: "none" },
+        paint: { "raster-opacity": 0.5 },
       },
       {
         id: "overlay-esri-labels",

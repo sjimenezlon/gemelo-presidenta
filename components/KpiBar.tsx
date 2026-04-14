@@ -7,11 +7,13 @@ export default function KpiBar({
   critical,
   bridges,
   loss,
+  population,
 }: {
   buildings: number;
   critical: number;
   bridges: number;
   loss: number;
+  population: number;
 }) {
   const twin = useTwin();
   const scenarioKey = Object.keys(IDF).find(
@@ -32,9 +34,11 @@ export default function KpiBar({
     <div className="pointer-events-auto absolute left-1/2 top-20 z-20 flex -translate-x-1/2 gap-2 rounded-2xl bg-ink/85 px-3 py-2 backdrop-blur-md ring-1 ring-white/10">
       <Kpi label="Escenario" value={scenarioLabel} accent="cyan" />
       <Sep />
-      <Kpi label="Edificios expuestos" value={fmt(buildings)} accent="red" />
+      <Kpi label="Población" value={fmt(population)} accent="red" />
       <Sep />
-      <Kpi label="Equip. críticos" value={fmt(critical)} accent="amber" />
+      <Kpi label="Edificios" value={fmt(buildings)} accent="red" />
+      <Sep />
+      <Kpi label="Críticos" value={fmt(critical)} accent="amber" />
       <Sep />
       <Kpi label="Puentes" value={fmt(bridges)} accent="orange" />
       <Sep />

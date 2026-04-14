@@ -22,14 +22,15 @@ export default function AppShell() {
   const twin = useTwin();
   const mapRef = useRef<MlMap | null>(null);
   const [data, setData] = useState<any>(null);
-  const [stats, setStats] = useState({ buildings: 0, critical: 0, bridges: 0, loss: 0 });
+  const [stats, setStats] = useState({ buildings: 0, critical: 0, bridges: 0, loss: 0, population: 0 });
 
   useEffect(() => {
     Promise.all([
       fetch("/data/buildings.geojson").then((r) => r.json()),
       fetch("/data/critical.geojson").then((r) => r.json()),
       fetch("/data/bridges.geojson").then((r) => r.json()),
-    ]).then(([b, c, br]) => setData({ b, c, br }));
+      fetch("/data/kontur_pop.geojson").then((r) => r.json()),
+    ]).then(([b, c, br, pop]) => setData({ b, c, br, pop }));
   }, []);
 
   useEffect(() => {
@@ -47,11 +48,19 @@ export default function AppShell() {
         loss += (p.value_cop || 0) * ratio;
       }
     }
+    let population = 0;
+    for (const f of data.pop.features) {
+      const p: any = f.properties || {};
+      if (p.hand == null) continue;
+      if (p.dist_grid_m != null && p.dist_grid_m > 300) continue;
+      if (p.hand <= twin.floodLevel) population += p.pop || 0;
+    }
     setStats({
       buildings: bCount,
       critical: countAffectedPoints(data.c, twin.floodLevel, 300),
       bridges: countAffectedPoints(data.br, twin.floodLevel, 300),
       loss,
+      population,
     });
   }, [twin.floodLevel, data]);
 
