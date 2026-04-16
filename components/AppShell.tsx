@@ -5,7 +5,7 @@ import ControlPanel from "./ControlPanel";
 import Legend from "./Legend";
 import KpiBar from "./KpiBar";
 import DecisionPanel from "./DecisionPanel";
-import { useTwin } from "./store";
+import { useTwin, twinStore, type CauceFilter } from "./store";
 import { countAffectedBuildings, countAffectedPoints } from "@/lib/flood";
 import type { Map as MlMap } from "maplibre-gl";
 
@@ -89,6 +89,41 @@ export default function AppShell() {
     if (!map) return;
     map.flyTo({ center: [lon, lat], zoom: 17, pitch: 65, duration: 1500 });
   };
+
+  // postMessage bridge: controladores externos (p.ej. gestural via webcam)
+  // envían { source: 'gemelo-gesture', type, value } para manipular el store.
+  // Zero-cost Vercel — todo corre cliente.
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      const d = e.data as any;
+      if (!d || d.source !== "gemelo-gesture") return;
+      switch (d.type) {
+        case "setFloodLevel": {
+          const v = Number(d.value);
+          if (Number.isFinite(v)) {
+            twinStore.set({ floodLevel: Math.max(0, Math.min(5, +v.toFixed(2))) });
+          }
+          break;
+        }
+        case "setCauceFilter": {
+          if (d.value === "presidenta" || d.value === "volcana" || d.value === "both") {
+            twinStore.set({ cauceFilter: d.value as CauceFilter });
+          }
+          break;
+        }
+        case "flyTo": {
+          const lon = Number(d.lon), lat = Number(d.lat);
+          if (Number.isFinite(lon) && Number.isFinite(lat)) flyTo(lon, lat);
+          break;
+        }
+        case "reset":
+          twinStore.set({ floodLevel: 0.8, cauceFilter: "both" });
+          break;
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
