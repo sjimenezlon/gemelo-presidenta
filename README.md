@@ -1,6 +1,6 @@
-# Gemelo Digital GeoAI — Quebrada La Presidenta
+# Gemelo Digital GeoAI — Quebradas La Presidenta + Volcana-Los Balsos
 
-Gemelo digital interactivo de la **Quebrada La Presidenta** (tramo El Poblado, Medellín) construido con **Next.js 14 + MapLibre GL + deck.gl**, terreno 3D, simulación de inundación y panel SIATA en tiempo real.
+Gemelo digital interactivo multi-cauce de las **Quebradas La Presidenta** y **Volcana-Los Balsos** (El Poblado / Campus EAFIT, Medellín) construido con **Next.js 14 + MapLibre GL + deck.gl**, terreno 3D, simulación HAND multi-cauce y filtro por quebrada.
 
 ## Características
 

@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useTwin } from "./store";
-import { IDF, type ScenarioKey } from "@/lib/flood";
+import { idfForCauce, type ScenarioKey } from "@/lib/flood";
 
 type CriticalItem = {
   name: string;
   kind: string;
   hand: number;
+  cauce_id?: string;
   lon: number;
   lat: number;
 };
@@ -65,6 +66,17 @@ export default function DecisionPanel({
                       </div>
                       <div className="text-[9px] uppercase tracking-wider text-slate-500">
                         {c.kind}
+                        {c.cauce_id && (
+                          <span
+                            className={`ml-1.5 rounded px-1 py-0.5 text-[8px] ${
+                              c.cauce_id === "volcana"
+                                ? "bg-amber-500/20 text-amber-300"
+                                : "bg-cyan-500/20 text-cyan-300"
+                            }`}
+                          >
+                            {c.cauce_id === "volcana" ? "VOLCANA" : "PRESIDENTA"}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
@@ -79,20 +91,36 @@ export default function DecisionPanel({
             </ul>
           </div>
         )}
-        {tab === "escenarios" && <ScenarioMatrix meta={twin.meta} />}
+        {tab === "escenarios" && <ScenarioMatrix meta={twin.meta} filter={twin.cauceFilter} />}
         {tab === "acciones" && <Actions />}
       </div>
     </aside>
   );
 }
 
-function ScenarioMatrix({ meta }: { meta: any }) {
-  if (!meta?.affected_by_level) return <div className="text-slate-500">Cargando…</div>;
+function ScenarioMatrix({ meta, filter }: { meta: any; filter: string }) {
+  if (!meta?.cauces) return <div className="text-slate-500">Cargando…</div>;
   const keys: ScenarioKey[] = ["tr2", "tr5", "tr10", "tr25", "tr50", "tr100", "cc2050"];
+  const activeCauce = filter === "volcana" ? "volcana" : "presidenta";
+  const idf = idfForCauce(activeCauce as any);
+
+  const agg = (lk: string, field: string) => {
+    if (filter === "both") {
+      let sum = 0;
+      for (const cid of Object.keys(meta.cauces)) {
+        sum += meta.cauces[cid]?.[field]?.[lk] || 0;
+      }
+      return sum;
+    }
+    return meta.cauces[filter]?.[field]?.[lk] || 0;
+  };
+
+  const sampleCauce = meta.cauces.presidenta || Object.values(meta.cauces)[0];
+
   return (
     <div>
       <div className="mb-2 text-slate-400">
-        Impacto comparado por periodo de retorno (matriz precomputada).
+        Impacto comparado por periodo de retorno — {filter === "both" ? "total ambas quebradas" : filter === "volcana" ? "Volcana-Los Balsos" : "La Presidenta"}.
       </div>
       <table className="w-full text-[10px]">
         <thead>
@@ -106,11 +134,11 @@ function ScenarioMatrix({ meta }: { meta: any }) {
         </thead>
         <tbody>
           {keys.map((k) => {
-            const s = IDF[k];
-            const lk = nearestKey(s.H, meta.affected_by_level);
-            const ed = meta.affected_by_level[lk] || 0;
-            const cr = meta.critical_by_level?.[lk] || 0;
-            const loss = meta.loss_by_level_cop?.[lk] || 0;
+            const s = idf[k];
+            const lk = nearestKey(s.H, sampleCauce?.affected_by_level || {});
+            const ed = agg(lk, "affected_by_level");
+            const cr = agg(lk, "critical_by_level");
+            const loss = agg(lk, "loss_by_level_cop");
             return (
               <tr key={k} className="border-b border-white/5">
                 <td className="py-1.5 font-semibold text-cyan-200">{s.label}</td>
@@ -149,16 +177,23 @@ function nearestKey(target: number, dict: Record<string, number>): string {
 function Actions() {
   const twin = useTwin();
   const level = twin.floodLevel;
+  const f = twin.cauceFilter;
+  const siteHints =
+    f === "volcana"
+      ? "Inspección de estructuras de paso y canalización en el tramo Campus EAFIT — Quebrada Volcana-Los Balsos."
+      : f === "presidenta"
+      ? "Inspección de estructuras de captación en Parque La Presidenta."
+      : "Inspección de puntos críticos: Parque La Presidenta y tramo Campus EAFIT (Volcana-Los Balsos).";
   const items =
     level < 1
       ? [
           {
             t: "Mantenimiento preventivo",
-            d: "Limpieza trimestral de rejillas y cámaras del tramo cubierto. Inspección de estructuras de captación en Parque La Presidenta.",
+            d: `Limpieza trimestral de rejillas y cámaras del tramo cubierto. ${siteHints}`,
           },
           {
             t: "Monitoreo SIATA",
-            d: "Verificar calibración de la estación de nivel 201. Conservar umbrales de alerta actuales (≥ 40 cm).",
+            d: "Verificar calibración de estaciones de nivel. Conservar umbrales de alerta actuales (≥ 40 cm).",
           },
           {
             t: "Campañas vecinales",

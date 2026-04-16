@@ -1,6 +1,6 @@
 "use client";
-import { twinStore, useTwin, type OverlayId } from "./store";
-import { IDF, type ScenarioKey } from "@/lib/flood";
+import { twinStore, useTwin, type OverlayId, type CauceFilter } from "./store";
+import { IDF, idfForCauce, type ScenarioKey } from "@/lib/flood";
 import { BASEMAPS, type BasemapId } from "./mapStyle";
 
 const OVERLAYS: { id: OverlayId; label: string }[] = [
@@ -8,6 +8,12 @@ const OVERLAYS: { id: OverlayId; label: string }[] = [
   { id: "nasa_precip", label: "NASA IMERG precipitación" },
   { id: "esri_hillshade", label: "Hillshade Esri" },
   { id: "worldcover", label: "ESA WorldCover 2021 (10m)" },
+];
+
+const CAUCE_OPTS: { id: CauceFilter; label: string; color: string }[] = [
+  { id: "presidenta", label: "La Presidenta", color: "text-cyan-200 ring-cyan-400/60 bg-cyan-500/20" },
+  { id: "volcana", label: "Volcana-Los Balsos", color: "text-amber-200 ring-amber-400/60 bg-amber-500/20" },
+  { id: "both", label: "Ambas", color: "text-slate-100 ring-white/40 bg-white/10" },
 ];
 
 export default function ControlPanel({
@@ -18,10 +24,37 @@ export default function ControlPanel({
   const twin = useTwin();
 
   const scenarioList: ScenarioKey[] = ["tr2", "tr5", "tr10", "tr25", "tr50", "tr100", "cc2050"];
-  const active = scenarioList.find((k) => Math.abs(IDF[k].H - twin.floodLevel) < 0.05);
+  const activeCauce = twin.cauceFilter === "volcana" ? "volcana" : "presidenta";
+  const idf = idfForCauce(activeCauce);
+  const active = scenarioList.find((k) => Math.abs(idf[k].H - twin.floodLevel) < 0.05);
 
   return (
     <aside className="pointer-events-auto absolute right-4 top-20 z-20 max-h-[calc(100vh-6rem)] w-[22rem] space-y-3 overflow-y-auto pr-1 text-sm">
+      <section className="rounded-2xl bg-ink/85 p-4 backdrop-blur-md ring-1 ring-white/10">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-cyan-300">
+          Quebrada activa
+        </h2>
+        <div className="grid grid-cols-3 gap-1">
+          {CAUCE_OPTS.map((o) => (
+            <button
+              key={o.id}
+              onClick={() => twinStore.set({ cauceFilter: o.id })}
+              className={`rounded-lg px-1 py-1.5 text-[10px] font-medium ring-1 transition ${
+                twin.cauceFilter === o.id
+                  ? o.color
+                  : "bg-white/5 text-slate-300 ring-white/10 hover:bg-white/10"
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-[10px] leading-snug text-slate-500">
+          El slider de nivel y la mancha de inundación aplican a ambos cauces
+          (evento de lluvia regional). El filtro solo afecta KPIs y resaltado.
+        </p>
+      </section>
+
       <section className="rounded-2xl bg-ink/85 p-4 backdrop-blur-md ring-1 ring-white/10">
         <h2 className="mb-1 text-xs font-semibold uppercase tracking-widest text-cyan-300">
           Modelo HAND · Inundación fluvial
@@ -47,7 +80,7 @@ export default function ControlPanel({
         />
         <div className="mt-3 grid grid-cols-4 gap-1">
           {scenarioList.map((k) => {
-            const s = IDF[k];
+            const s = idf[k];
             return (
               <button
                 key={k}
@@ -66,11 +99,15 @@ export default function ControlPanel({
         </div>
         {active && (
           <div className="mt-3 grid grid-cols-3 gap-1 rounded-lg bg-cyan-500/10 p-2 text-center ring-1 ring-cyan-400/30">
-            <Mini label="Lluvia" value={`${IDF[active].mmh} mm/h`} />
-            <Mini label="Caudal Q" value={`${IDF[active].Q} m³/s`} />
-            <Mini label="Calado H" value={`${IDF[active].H} m`} />
+            <Mini label="Lluvia" value={`${idf[active].mmh} mm/h`} />
+            <Mini label="Caudal Q" value={`${idf[active].Q} m³/s`} />
+            <Mini label="Calado H" value={`${idf[active].H} m`} />
           </div>
         )}
+        <p className="mt-2 text-[10px] text-slate-500">
+          IDF referencial: {activeCauce === "volcana" ? "Volcana-Los Balsos (A≈5.5 km²)" : "La Presidenta (A≈7.2 km²)"}.
+          {twin.cauceFilter === "both" && " Con filtro 'Ambas' se muestra Presidenta por defecto."}
+        </p>
       </section>
 
       <section className="rounded-2xl bg-ink/85 p-4 backdrop-blur-md ring-1 ring-white/10">

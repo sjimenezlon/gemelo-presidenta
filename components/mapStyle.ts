@@ -199,9 +199,9 @@ export function buildStyle(basemap: BasemapId): StyleSpecification {
 }
 
 export const INITIAL_VIEW = {
-  longitude: -75.5608,
-  latitude: 6.2080,
-  zoom: 14.8,
+  longitude: -75.5655,
+  latitude: 6.2015,
+  zoom: 14.1,
   pitch: 62,
   bearing: -22,
 };

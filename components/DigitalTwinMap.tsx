@@ -43,9 +43,10 @@ export default function DigitalTwinMap({
       if (installing || map.getSource("rio")) return;
       installing = true;
       try {
-        const [presidenta, rio, buildings, handGrid, meta, critical, bridges, kontur, boundary] =
+        const [presidenta, volcana, rio, buildings, handGrid, meta, critical, bridges, kontur, boundary] =
           await Promise.all([
             fetch("/data/presidenta.geojson").then((r) => r.json()),
+            fetch("/data/volcana.geojson").then((r) => r.json()),
             fetch("/data/rio_medellin.geojson").then((r) => r.json()),
             fetch("/data/buildings.geojson").then((r) => r.json()),
             fetch("/data/hand_grid.geojson").then((r) => r.json()),
@@ -85,6 +86,23 @@ export default function DigitalTwinMap({
           source: "presidenta",
           paint: {
             "line-color": "#a5f3fc",
+            "line-width": ["case", ["==", ["get", "cubierta"], true], 2, 3.5],
+          },
+        });
+
+        map.addSource("volcana", { type: "geojson", data: volcana });
+        map.addLayer({
+          id: "volcana-glow",
+          type: "line",
+          source: "volcana",
+          paint: { "line-color": "#f59e0b", "line-width": 7, "line-blur": 5, "line-opacity": 0.7 },
+        });
+        map.addLayer({
+          id: "volcana-line",
+          type: "line",
+          source: "volcana",
+          paint: {
+            "line-color": "#fcd34d",
             "line-width": ["case", ["==", ["get", "cubierta"], true], 2, 3.5],
           },
         });
@@ -209,17 +227,6 @@ export default function DigitalTwinMap({
 
         if (!markersDone) {
           markersDone = true;
-          // Buscar el extremo oriental (aguas arriba — mayor elevación) y occidental
-          // (aguas abajo — último punto trazado en OSM antes del canal cubierto)
-          const all: number[][] = [];
-          presidenta.features.forEach((f: any) =>
-            f.geometry.coordinates.forEach((c: number[]) => all.push(c)),
-          );
-          let east = all[0], west = all[0];
-          for (const c of all) {
-            if (c[0] > east[0]) east = c;
-            if (c[0] < west[0]) west = c;
-          }
           const mk = (lng: number, lat: number, color: string, label: string, sub: string) => {
             const el = document.createElement("div");
             el.style.cssText = `width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #0b1120;box-shadow:0 0 12px ${color};`;
@@ -232,10 +239,29 @@ export default function DigitalTwinMap({
               )
               .addTo(map);
           };
-          if (east)
-            mk(east[0], east[1], "#10b981", "Nacimiento · Las Palmas", "Tramo aguas arriba (OSM)");
-          if (west)
-            mk(west[0], west[1], "#f59e0b", "Límite OSM aguas abajo", "El canal cubierto continúa ~1 km hasta el Río Medellín");
+          const endpoints = (fc: any): { east: number[]; west: number[] } | null => {
+            const all: number[][] = [];
+            fc.features.forEach((f: any) =>
+              f.geometry.coordinates.forEach((c: number[]) => all.push(c)),
+            );
+            if (!all.length) return null;
+            let east = all[0], west = all[0];
+            for (const c of all) {
+              if (c[0] > east[0]) east = c;
+              if (c[0] < west[0]) west = c;
+            }
+            return { east, west };
+          };
+          const presEnd = endpoints(presidenta);
+          if (presEnd) {
+            mk(presEnd.east[0], presEnd.east[1], "#22d3ee", "Nacimiento · Las Palmas", "Q. La Presidenta — tramo aguas arriba (OSM)");
+            mk(presEnd.west[0], presEnd.west[1], "#a5f3fc", "Límite OSM La Presidenta", "Canal cubierto continúa ~1 km hasta el Río Medellín");
+          }
+          const volcEnd = endpoints(volcana);
+          if (volcEnd) {
+            mk(volcEnd.east[0], volcEnd.east[1], "#f59e0b", "Nacimiento · Los Balsos alto", "Q. Volcana-Los Balsos — cerro Las Palmas");
+            mk(volcEnd.west[0], volcEnd.west[1], "#fcd34d", "Límite OSM Volcana · EAFIT", "Atraviesa Campus EAFIT antes de canalizarse al Río Medellín");
+          }
         }
       } catch (err: any) {
         console.error("installLayers error", err);
@@ -304,6 +330,41 @@ export default function DigitalTwinMap({
       );
     }
   }, [twin.floodLevel, twin.showBuildings, twin.showKontur]);
+
+  // Reactividad: cauceFilter — atenúa la quebrada no-activa y filtra capas por cauce_id
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    const f = twin.cauceFilter;
+    const presOn = f === "both" || f === "presidenta";
+    const volcOn = f === "both" || f === "volcana";
+
+    const setOp = (layerId: string, prop: string, value: number) => {
+      if (map.getLayer(layerId)) map.setPaintProperty(layerId, prop, value);
+    };
+    setOp("presidenta-glow", "line-opacity", presOn ? 0.7 : 0.15);
+    setOp("presidenta-line", "line-opacity", presOn ? 1 : 0.25);
+    setOp("volcana-glow", "line-opacity", volcOn ? 0.7 : 0.15);
+    setOp("volcana-line", "line-opacity", volcOn ? 1 : 0.25);
+
+    // Filtros por cauce_id en features que lo tengan
+    const filterFor = (id: string) =>
+      f === "both"
+        ? null
+        : ["any", ["!", ["has", "cauce_id"]], ["==", ["get", "cauce_id"], f]];
+
+    const applyFilter = (layerId: string) => {
+      if (map.getLayer(layerId)) {
+        const flt = filterFor(layerId);
+        map.setFilter(layerId, flt as any);
+      }
+    };
+    applyFilter("buildings-3d");
+    applyFilter("critical-pt");
+    applyFilter("bridges-line");
+    applyFilter("kontur-pt");
+    // flood-fill/outline no se filtran — evento de lluvia regional afecta ambos cauces
+  }, [twin.cauceFilter]);
 
   useEffect(() => {
     const map = mapRef.current;

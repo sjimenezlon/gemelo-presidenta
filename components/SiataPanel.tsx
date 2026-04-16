@@ -12,14 +12,17 @@ type Station = {
 // Simulación local. Para datos reales, enchufar a la API pública de SIATA:
 //   https://siata.gov.co/siata_nuevo/index.php/niveles-monitoreados
 // o al portal de datos abiertos. Debe proxearse desde /api/siata para CORS.
-const MOCK: Station[] = [
-  { id: "201", name: "La Presidenta — Lleras", rainMmh: 2.1, levelCm: 34, status: "ok" },
-  { id: "198", name: "La Presidenta — Parque", rainMmh: 1.8, levelCm: 29, status: "ok" },
-  { id: "PN2", name: "Nutibara (pluv.)", rainMmh: 3.4, levelCm: 0, status: "ok" },
+type CauceId = "presidenta" | "volcana" | null;
+const MOCK: (Station & { cauce: CauceId })[] = [
+  { id: "201", name: "La Presidenta — Lleras", rainMmh: 2.1, levelCm: 34, status: "ok", cauce: "presidenta" },
+  { id: "198", name: "La Presidenta — Parque", rainMmh: 1.8, levelCm: 29, status: "ok", cauce: "presidenta" },
+  { id: "V01", name: "Volcana — Los Balsos alto", rainMmh: 2.3, levelCm: 22, status: "ok", cauce: "volcana" },
+  { id: "V02", name: "Volcana — Campus EAFIT", rainMmh: 1.9, levelCm: 31, status: "ok", cauce: "volcana" },
+  { id: "PN2", name: "Nutibara (pluv.)", rainMmh: 3.4, levelCm: 0, status: "ok", cauce: null },
 ];
 
 export default function SiataPanel() {
-  const [stations, setStations] = useState<Station[]>(MOCK);
+  const [stations, setStations] = useState<(Station & { cauce: CauceId })[]>(MOCK);
   const [updated, setUpdated] = useState<Date>(new Date());
 
   useEffect(() => {

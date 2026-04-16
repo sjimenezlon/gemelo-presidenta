@@ -35,12 +35,15 @@ export default function AppShell() {
 
   useEffect(() => {
     if (!data) return;
+    const matchesCauce = (p: any) =>
+      twin.cauceFilter === "both" || p?.cauce_id == null || p.cauce_id === twin.cauceFilter;
     let loss = 0;
     let bCount = 0;
     for (const f of data.b.features) {
       const p: any = f.properties || {};
       if (p.hand == null) continue;
       if (p.dist_cauce_m != null && p.dist_cauce_m > 400) continue;
+      if (!matchesCauce(p)) continue;
       if (p.hand <= twin.floodLevel) {
         bCount++;
         const depth = twin.floodLevel - p.hand;
@@ -53,25 +56,33 @@ export default function AppShell() {
       const p: any = f.properties || {};
       if (p.hand == null) continue;
       if (p.dist_grid_m != null && p.dist_grid_m > 300) continue;
+      if (!matchesCauce(p)) continue;
       if (p.hand <= twin.floodLevel) population += p.pop || 0;
     }
     setStats({
       buildings: bCount,
-      critical: countAffectedPoints(data.c, twin.floodLevel, 300),
-      bridges: countAffectedPoints(data.br, twin.floodLevel, 300),
+      critical: countAffectedPoints(data.c, twin.floodLevel, 300, twin.cauceFilter),
+      bridges: countAffectedPoints(data.br, twin.floodLevel, 300, twin.cauceFilter),
       loss,
       population,
     });
-  }, [twin.floodLevel, data]);
+  }, [twin.floodLevel, twin.cauceFilter, data]);
 
   const criticalList =
-    data?.c?.features?.map((f: any) => ({
-      name: f.properties?.name || "",
-      kind: f.properties?.kind || "",
-      hand: f.properties?.hand ?? 999,
-      lon: f.geometry.coordinates[0],
-      lat: f.geometry.coordinates[1],
-    })) || [];
+    data?.c?.features
+      ?.filter((f: any) =>
+        twin.cauceFilter === "both" ||
+        f.properties?.cauce_id == null ||
+        f.properties?.cauce_id === twin.cauceFilter,
+      )
+      .map((f: any) => ({
+        name: f.properties?.name || "",
+        kind: f.properties?.kind || "",
+        hand: f.properties?.hand ?? 999,
+        cauce_id: f.properties?.cauce_id,
+        lon: f.geometry.coordinates[0],
+        lat: f.geometry.coordinates[1],
+      })) || [];
 
   const flyTo = (lon: number, lat: number) => {
     const map = mapRef.current;
@@ -88,7 +99,7 @@ export default function AppShell() {
             Gemelo Digital GeoAI
           </div>
           <h1 className="text-lg font-semibold">
-            Quebrada La Presidenta · El Poblado, Medellín
+            Quebradas La Presidenta + Volcana-Los Balsos · El Poblado / EAFIT
           </h1>
         </div>
         <a

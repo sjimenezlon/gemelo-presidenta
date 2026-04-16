@@ -4,6 +4,8 @@ import { useSyncExternalStore } from "react";
 import type { BasemapId } from "./mapStyle";
 
 export type OverlayId = "hot" | "nasa_precip" | "esri_hillshade" | "worldcover";
+export type CauceId = "presidenta" | "volcana";
+export type CauceFilter = CauceId | "both";
 
 export type TwinState = {
   floodLevel: number; // metros sobre cauce
@@ -16,6 +18,7 @@ export type TwinState = {
   buildingsTotal: number;
   meta: any;
   showKontur: boolean;
+  cauceFilter: CauceFilter;
 };
 
 const initial: TwinState = {
@@ -29,6 +32,7 @@ const initial: TwinState = {
   buildingsTotal: 0,
   meta: null,
   showKontur: false,
+  cauceFilter: "both",
 };
 
 let state: TwinState = { ...initial };

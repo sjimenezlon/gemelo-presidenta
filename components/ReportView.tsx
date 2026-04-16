@@ -7,6 +7,7 @@ type Critical = {
   kind: string;
   hand: number;
   dist: number;
+  cauce_id?: string;
   lon: number;
   lat: number;
 };
@@ -30,6 +31,7 @@ export default function ReportView() {
             kind: f.properties?.kind || "",
             hand: f.properties?.hand ?? 999,
             dist: f.properties?.dist_grid_m ?? 999,
+            cauce_id: f.properties?.cauce_id,
             lon: f.geometry.coordinates[0],
             lat: f.geometry.coordinates[1],
           })),
@@ -114,7 +116,7 @@ export default function ReportView() {
           Evaluación de riesgo por inundación
         </h1>
         <h2 className="text-xl font-semibold text-sky-700">
-          Quebrada La Presidenta — Comuna 14 El Poblado, Medellín
+          Quebradas La Presidenta + Volcana-Los Balsos · El Poblado / Campus EAFIT · Medellín
         </h2>
         <div className="mt-2 flex justify-between text-xs text-slate-500">
           <span>Reporte generado: <strong className="text-slate-700">{fecha}</strong></span>
@@ -129,97 +131,95 @@ export default function ReportView() {
         </h2>
         <p className="mb-3 text-sm leading-relaxed text-slate-700">
           Este reporte presenta los resultados de la modelación de riesgo por inundación
-          fluvial para la Quebrada La Presidenta (Comuna 14, El Poblado) construida con
+          fluvial <strong>multi-cauce</strong> para las quebradas <strong>La Presidenta</strong> y{" "}
+          <strong>Volcana-Los Balsos</strong> (El Poblado / Campus EAFIT), construida con
           el método <strong>HAND (Height Above Nearest Drainage)</strong> sobre un modelo
           digital de elevación de ~10 m, cartografía OpenStreetMap 2026-04 y datos de
-          población Kontur 2023-11. El modelo evalúa siete escenarios de lluvia extrema
-          (TR 2 a TR 100 y cambio climático 2050) y cuantifica la exposición de
-          edificaciones, equipamientos críticos, puentes y población.
+          población Kontur 2023-11. Cada edificio y celda del área de estudio se asigna
+          al drenaje más cercano (propiedad <code>cauce_id</code>) y su HAND se calcula
+          relativo a ese cauce. El modelo evalúa siete escenarios de lluvia extrema
+          (TR 2 a TR 100 y cambio climático 2050) y cuantifica exposición de edificaciones,
+          equipamientos críticos, puentes y población.
         </p>
 
         <div className="mb-4 grid grid-cols-5 gap-2">
-          <Kpi label="Área de estudio" value={`${meta?.comuna_14_area_km2 ?? "?"} km²`} sub="Comuna 14 (OSM)" />
+          <Kpi label="Cauces" value="2" sub="Presidenta + Volcana-Los Balsos" />
           <Kpi
-            label="Población"
-            value={meta?.comuna_14_population_dane?.toLocaleString("es-CO") ?? "—"}
-            sub="DANE proyección 2024"
+            label="Valor expuesto"
+            value={`${((meta?.total_value_cop || 0) / 1e12).toFixed(1)} B COP`}
+            sub="Total edificado área estudio"
           />
           <Kpi label="Edificios" value={meta?.buildings_total?.toLocaleString("es-CO") ?? "—"} sub="OSM abr-2026" />
           <Kpi
             label="Críticos"
             value={meta?.critical_total ?? "—"}
-            sub={`${meta?.verified?.critical_named_pct || 90}% con nombre OSM`}
+            sub="Equipamientos OSM"
           />
           <Kpi
             label="Puentes"
             value={meta?.bridges_total ?? "—"}
-            sub={`${meta?.verified?.bridges_named_pct || 43}% con nombre OSM`}
+            sub="OSM bridges"
           />
         </div>
 
         <div className="rounded-lg border border-sky-100 bg-sky-50 p-4 text-sm">
-          <div className="mb-2 font-semibold text-sky-900">Hallazgos principales</div>
+          <div className="mb-2 font-semibold text-sky-900">Hallazgos principales (totales ambos cauces)</div>
           <ul className="list-inside list-disc space-y-1 text-slate-700">
             <li>
               Bajo un escenario <strong>TR 100 (lluvia 130 mm/h, calado 2.9 m)</strong>,
-              se estiman <strong>{meta?.affected_by_level?.["3.0"] || "?"} edificios</strong>{" "}
-              y <strong>{meta?.critical_by_level?.["3.0"] || "?"} equipamientos críticos nombrados</strong>{" "}
-              expuestos.
+              se estiman <strong>{meta?.total?.affected_by_level?.["3.0"] || "?"} edificios</strong>{" "}
+              y <strong>{meta?.total?.critical_by_level?.["3.0"] || "?"} equipamientos críticos</strong>{" "}
+              expuestos entre ambos cauces.
             </li>
             <li>
               Pérdida económica estimada para TR 100:{" "}
-              <strong>{fmtCop(meta?.loss_by_level_cop?.["3.0"] || 0)} COP</strong>{" "}
+              <strong>{fmtCop(meta?.total?.loss_by_level_cop?.["3.0"] || 0)} COP</strong>{" "}
               (incertidumbre ±30%). Curva HAZUS × precio mezclado{" "}
-              {(meta?.price_per_m2_cop || 5500000).toLocaleString("es-CO")} COP/m².
+              {(meta?.price_per_m2_cop || 6500000).toLocaleString("es-CO")} COP/m².
             </li>
             <li>
               Bajo cambio climático <strong>CC 2050 (+20% intensidad, H=3.6 m)</strong>, la
-              exposición aumenta a <strong>{meta?.affected_by_level?.["3.5"] || "?"} edificios</strong>{" "}
-              y pérdida de <strong>{fmtCop(meta?.loss_by_level_cop?.["3.5"] || 0)} COP</strong>.
+              exposición aumenta a <strong>{meta?.total?.affected_by_level?.["3.5"] || "?"} edificios</strong>{" "}
+              y pérdida de <strong>{fmtCop(meta?.total?.loss_by_level_cop?.["3.5"] || 0)} COP</strong>.
             </li>
             <li>
-              Población potencialmente afectada (TR 100):{" "}
-              <strong>{meta?.population_by_level?.["3.0"]?.toLocaleString("es-CO") || "—"}</strong>{" "}
-              habitantes —{" "}
-              {meta?.comuna_14_population_dane
-                ? `${Math.round((100 * (meta.population_by_level?.["3.0"] || 0)) / meta.comuna_14_population_dane)}%`
-                : "—"}{" "}
-              del total de la Comuna 14.
+              Desglose por cauce a TR 100:{" "}
+              <strong>La Presidenta {meta?.cauces?.presidenta?.affected_by_level?.["3.0"] || "—"} edif.</strong>{" "}
+              / <strong>Volcana-Los Balsos {meta?.cauces?.volcana?.affected_by_level?.["3.0"] || "—"} edif.</strong>
             </li>
             <li>
               <strong>{exposedAtTR100.length} equipamientos críticos identificados por nombre</strong>{" "}
-              se encuentran en zona de inundación TR 100 (ver Sección 3).
+              se encuentran en zona de inundación TR 100 combinado (ver Sección 3).
             </li>
           </ul>
         </div>
         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900">
-          <strong>Verificabilidad.</strong> Todas las cifras anteriores se derivan de OSM 2026-04 +
-          DEM Terrarium + Kontur 2023 + DANE proyección 2024. La lista de equipamientos
-          críticos (Sección 3) contiene únicamente elementos con <em>name</em> en OSM — los 15
-          elementos sin nombre (~10% del total) fueron excluidos.
+          <strong>Verificabilidad.</strong> Todas las cifras se derivan de OSM 2026-04 +
+          DEM Terrarium z14 + Kontur 2023 + curvas IDF POMCA AMVA.
+          El modelo asume lluvia regional simultánea — cada celda se inunda según su HAND al
+          drenaje más cercano.
         </div>
       </section>
 
-      {/* 2. Escenarios */}
+      {/* 2. Escenarios — totales */}
       <section className="mb-6">
         <h2 className="mb-2 text-lg font-semibold accent">
-          2. Escenarios por periodo de retorno
+          2. Escenarios por periodo de retorno — impacto combinado
         </h2>
         <p className="mb-2 text-xs text-slate-600">
-          Curvas IDF referenciales del POMCA AMVA. El calado H se obtuvo combinando el
-          método racional Q=CiA/3.6 (C=0.75, A=7.2 km²) con la ecuación de Manning sobre
-          un canal rectangular promedio de La Presidenta (b=6 m, n=0.035, S=0.065).
+          Curvas IDF referenciales del POMCA AMVA. Para cada escenario, los valores
+          corresponden a la suma de edificios, críticos y pérdida en ambos cauces
+          (evento de lluvia regional simultáneo). Parámetros Presidenta: A=7.2 km², S=0.065,
+          b=6 m, n=0.035. Parámetros Volcana-Los Balsos: A=5.5 km², S=0.055, b=5 m, n=0.040.
         </p>
         <table>
           <thead>
             <tr>
               <th>Escenario</th>
               <th className="num">Lluvia mm/h</th>
-              <th className="num">Caudal m³/s</th>
               <th className="num">Calado H (m)</th>
               <th className="num">Edificios</th>
               <th className="num">Críticos</th>
-              <th className="num">Puentes</th>
               <th className="num">Pob.</th>
               <th className="num">Pérdida COP</th>
             </tr>
@@ -227,23 +227,50 @@ export default function ReportView() {
           <tbody>
             {scenarioRows.map((k) => {
               const s = IDF[k];
-              const lk = nearestKey(s.H, meta?.affected_by_level || {});
-              const ed = meta?.affected_by_level?.[lk] || 0;
-              const cr = meta?.critical_by_level?.[lk] || 0;
-              const br = meta?.bridges_by_level?.[lk] || 0;
-              const pp = meta?.population_by_level?.[lk] || 0;
-              const ls = meta?.loss_by_level_cop?.[lk] || 0;
+              const lk = nearestKey(s.H, meta?.total?.affected_by_level || {});
+              const ed = meta?.total?.affected_by_level?.[lk] || 0;
+              const cr = meta?.total?.critical_by_level?.[lk] || 0;
+              const pp = meta?.total?.population_by_level?.[lk] || 0;
+              const ls = meta?.total?.loss_by_level_cop?.[lk] || 0;
               return (
                 <tr key={k}>
                   <td className="font-semibold text-sky-700">{s.label}</td>
                   <td className="num">{s.mmh}</td>
-                  <td className="num">{s.Q}</td>
                   <td className="num">{s.H.toFixed(1)}</td>
                   <td className="num">{ed}</td>
                   <td className="num">{cr}</td>
-                  <td className="num">{br}</td>
                   <td className="num">{pp.toLocaleString("es-CO")}</td>
                   <td className="num">{fmtCop(ls)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        <h3 className="mt-4 mb-2 text-sm font-semibold text-slate-800">
+          2.1 Desglose por cauce (TR 100, H=2.9 m)
+        </h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Cauce</th>
+              <th className="num">Edificios</th>
+              <th className="num">Críticos</th>
+              <th className="num">Pob.</th>
+              <th className="num">Pérdida COP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(["presidenta", "volcana"] as const).map((cid) => {
+              const c = meta?.cauces?.[cid];
+              if (!c) return null;
+              return (
+                <tr key={cid}>
+                  <td className="font-semibold text-sky-700">{c.display_name}</td>
+                  <td className="num">{c.affected_by_level?.["3.0"] || 0}</td>
+                  <td className="num">{c.critical_by_level?.["3.0"] || 0}</td>
+                  <td className="num">{(c.population_by_level?.["3.0"] || 0).toLocaleString("es-CO")}</td>
+                  <td className="num">{fmtCop(c.loss_by_level_cop?.["3.0"] || 0)}</td>
                 </tr>
               );
             })}
@@ -271,19 +298,21 @@ export default function ReportView() {
                 <th>#</th>
                 <th>Nombre</th>
                 <th>Tipo</th>
+                <th>Cauce</th>
                 <th className="num">HAND (m)</th>
                 <th className="num">Lon</th>
                 <th className="num">Lat</th>
               </tr>
             </thead>
             <tbody>
-              {exposedAtTR100.slice(0, 30).map((c, i) => (
+              {exposedAtTR100.slice(0, 40).map((c, i) => (
                 <tr key={i}>
                   <td className="text-slate-500">{i + 1}</td>
                   <td className="font-medium text-slate-800">
                     {c.name || <em className="text-slate-400">sin nombre OSM</em>}
                   </td>
                   <td>{c.kind}</td>
+                  <td className="text-[10px] uppercase text-slate-500">{c.cauce_id || "—"}</td>
                   <td className="num font-semibold text-red-600">{c.hand.toFixed(2)}</td>
                   <td className="num muted">{c.lon.toFixed(5)}</td>
                   <td className="num muted">{c.lat.toFixed(5)}</td>
@@ -308,9 +337,9 @@ export default function ReportView() {
             color="green"
             title="Verde — operación normal (H < 1 m · TR ≤ 5)"
             items={[
-              "Mantenimiento trimestral de rejillas y cámaras del tramo cubierto",
-              "Inspección de estructuras en Parque La Presidenta",
-              "Verificación de calibración estación SIATA 201",
+              "Mantenimiento trimestral de rejillas y cámaras del tramo cubierto en ambos cauces",
+              "Inspección de estructuras en Parque La Presidenta y tramo Campus EAFIT (Volcana-Los Balsos)",
+              "Verificación de calibración de estaciones SIATA de nivel en ambas quebradas",
               "Campañas de sensibilización vecinal en HAND ≤ 0.5 m",
             ]}
           />
@@ -370,31 +399,35 @@ export default function ReportView() {
             Remote Sensing of Environment.
           </p>
           <p>
-            El DEM se construyó a partir de tiles Mapzen Terrarium z14 (~{meta?.dem_resolution_m_approx || 10} m/px,
-            rango {meta?.cauce_elev_min?.toFixed?.(0) || "—"} a {meta?.cauce_elev_max?.toFixed?.(0) || "—"} m.s.n.m.), el cauce se obtuvo
-            de OpenStreetMap con {meta?.cauce_points || "—"} puntos muestreados a lo largo de los{" "}
-            15 segmentos reales. El grid de HAND contiene {meta?.grid_points || "—"} puntos
-            dentro de la potencial llanura de inundación (radio 350 m del cauce).
+            El DEM se construyó a partir de tiles Mapzen Terrarium z14 (~{meta?.dem_resolution_m_approx || 10} m/px).
+            Los cauces se obtuvieron de OpenStreetMap con{" "}
+            <strong>{meta?.cauces?.presidenta?.cauce_points || "—"} puntos</strong> en La Presidenta
+            (elev {meta?.cauces?.presidenta?.cauce_elev_min?.toFixed?.(0) || "—"}–{meta?.cauces?.presidenta?.cauce_elev_max?.toFixed?.(0) || "—"} m.s.n.m.) y{" "}
+            <strong>{meta?.cauces?.volcana?.cauce_points || "—"} puntos</strong> en Volcana-Los Balsos
+            (elev {meta?.cauces?.volcana?.cauce_elev_min?.toFixed?.(0) || "—"}–{meta?.cauces?.volcana?.cauce_elev_max?.toFixed?.(0) || "—"} m.s.n.m.).
+            El grid de HAND contiene {meta?.grid_points || "—"} puntos dentro de la potencial llanura
+            de inundación (radio 350 m al drenaje más cercano).
           </p>
           <p>
             Las curvas de daño siguen una forma HAZUS simplificada:{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">ratio(d) = min(0.95, 0.15·d + 0.08·d²)</code>,
             donde d es la profundidad dentro del edificio. El valor por metro cuadrado
-            utilizado es un precio mezclado El Poblado 2026 (residencial + comercial + oficinas):{" "}
-            <strong>{(meta?.price_per_m2_cop || 5500000).toLocaleString("es-CO")} COP/m²</strong>.
+            utilizado es un precio mezclado El Poblado / EAFIT 2026 (residencial + comercial + oficinas):{" "}
+            <strong>{(meta?.price_per_m2_cop || 6500000).toLocaleString("es-CO")} COP/m²</strong>.
             Los pisos provienen del atributo <code>building:levels</code> de OSM cuando existe; en
-            caso contrario se aplica una heurística por área: <em>&lt;80 m²→2 pisos, 80–250→4,
-            250–600→8, &gt;600→12</em>. El valor total edificado del área es de aproximadamente{" "}
-            <strong>{((meta?.total_value_cop || 0) / 1e12).toFixed(0)} billones COP</strong> (~$
-            {Math.round((meta?.total_value_cop || 0) / 4e12)} mil millones USD).
+            caso contrario se asume 1 piso. El valor total edificado del área es de aproximadamente{" "}
+            <strong>{((meta?.total_value_cop || 0) / 1e12).toFixed(1)} billones COP</strong>.
+          </p>
+          <p>
+            <strong>Asignación multi-cauce.</strong> Cada edificio y celda del grid queda etiquetada
+            con la propiedad <code>cauce_id</code> según el drenaje más cercano (Presidenta o Volcana-Los Balsos).
+            El HAND de ese edificio se calcula relativo a ese cauce. Esto es consistente con la
+            definición original HAND (altura sobre el drenaje <em>más cercano</em>) y evita doble-conteo.
           </p>
           <p>
             <strong>Población.</strong> La base son los hexágonos H3 resolución 8 de Kontur
-            (2023-11, ~460 m), escalados por un factor{" "}
-            <strong>{meta?.kontur_scale_factor || "0.62"}</strong> para igualar la proyección DANE
-            2024 de la Comuna 14 ({meta?.comuna_14_population_dane?.toLocaleString("es-CO") || "140.184"} habitantes). Kontur
-            bruto reportaba {meta?.comuna_14_population_kontur?.toLocaleString("es-CO") || "224.780"}, que
-            sobreestimaba el dato oficial.
+            (2023-11, ~460 m). Cada hex se asigna al cauce más cercano y su población se considera
+            expuesta si el HAND del hex ≤ nivel.
           </p>
         </div>
       </section>
@@ -414,10 +447,11 @@ export default function ReportView() {
           <tbody>
             <tr><td>DEM (topografía)</td><td>Mapzen Terrarium via AWS Open Data</td><td>2022 (composite)</td><td>CC0 / ODbL</td></tr>
             <tr><td>Cauce La Presidenta</td><td>OpenStreetMap (Overpass API)</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Cauce Volcana-Los Balsos</td><td>OpenStreetMap (Overpass API)</td><td>abril 2026</td><td>ODbL</td></tr>
             <tr><td>Río Medellín</td><td>OpenStreetMap</td><td>abril 2026</td><td>ODbL</td></tr>
-            <tr><td>Edificaciones ({meta?.buildings_total?.toLocaleString("es-CO") || "4.729"})</td><td>OpenStreetMap</td><td>abril 2026</td><td>ODbL</td></tr>
-            <tr><td>Equip. críticos ({meta?.critical_total || 133} con nombre)</td><td>OpenStreetMap amenities</td><td>abril 2026</td><td>ODbL</td></tr>
-            <tr><td>Puentes/túneles ({meta?.bridges_total || 92} con nombre)</td><td>OpenStreetMap bridges</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Edificaciones ({meta?.buildings_total?.toLocaleString("es-CO") || "6.679"})</td><td>OpenStreetMap</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Equip. críticos ({meta?.critical_total || 133})</td><td>OpenStreetMap amenities</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Puentes/túneles ({meta?.bridges_total || 92})</td><td>OpenStreetMap bridges</td><td>abril 2026</td><td>ODbL</td></tr>
             <tr><td>Población (H3 hex escalado)</td><td>Kontur × DANE 2024</td><td>2023-11 / 2024</td><td>CC BY 4.0</td></tr>
             <tr><td>Población oficial Comuna 14</td><td>DANE proyección censal 2024</td><td>2024</td><td>Pública</td></tr>
             <tr><td>Comuna 14 boundary</td><td>OpenStreetMap relation</td><td>abril 2026</td><td>ODbL</td></tr>
@@ -472,10 +506,10 @@ export default function ReportView() {
       {/* Footer */}
       <footer className="mt-8 border-t-2 border-slate-200 pt-4 text-center text-xs text-slate-500">
         <div>
-          Gemelo Digital GeoAI · Quebrada La Presidenta · DENSURBAM · Urbam EAFIT
+          Gemelo Digital GeoAI · Quebradas La Presidenta + Volcana-Los Balsos · DENSURBAM · Urbam EAFIT
         </div>
         <div className="mt-1">
-          Generado con Next.js + MapLibre + HAND model ·{" "}
+          Generado con Next.js + MapLibre + HAND multi-cauce ·{" "}
           <a href="https://gemelo-presidenta.vercel.app" className="underline">
             gemelo-presidenta.vercel.app
           </a>

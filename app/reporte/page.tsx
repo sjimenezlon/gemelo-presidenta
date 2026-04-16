@@ -10,7 +10,7 @@ const ReportView = dynamic(() => import("@/components/ReportView"), {
 });
 
 export const metadata = {
-  title: "Reporte ejecutivo · Gemelo Digital Quebrada La Presidenta",
+  title: "Reporte ejecutivo · Gemelo Digital Quebradas La Presidenta + Volcana-Los Balsos",
 };
 
 export default function ReporteePage() {
