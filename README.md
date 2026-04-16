@@ -2,6 +2,8 @@
 
 Gemelo digital interactivo multi-cauce de las **Quebradas La Presidenta** y **Volcana-Los Balsos** (El Poblado / Campus EAFIT, Medellín) construido con **Next.js 14 + MapLibre GL + deck.gl**, terreno 3D, simulación HAND multi-cauce y filtro por quebrada.
 
+Base de edificaciones combinada: **OSM** (atributos manuales) + **Google Open Buildings v3** + **Microsoft Global ML Building Footprints** (vía dataset combinado VIDA). Total: ~21 mil edificaciones.
+
 ## Características
 
 - Mapa 3D con hillshade sobre DEM Terrarium (AWS Open Data, gratuito)

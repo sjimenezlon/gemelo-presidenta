@@ -414,9 +414,18 @@ export default function ReportView() {
             donde d es la profundidad dentro del edificio. El valor por metro cuadrado
             utilizado es un precio mezclado El Poblado / EAFIT 2026 (residencial + comercial + oficinas):{" "}
             <strong>{(meta?.price_per_m2_cop || 6500000).toLocaleString("es-CO")} COP/m²</strong>.
-            Los pisos provienen del atributo <code>building:levels</code> de OSM cuando existe; en
-            caso contrario se asume 1 piso. El valor total edificado del área es de aproximadamente{" "}
-            <strong>{((meta?.total_value_cop || 0) / 1e12).toFixed(1)} billones COP</strong>.
+          </p>
+          <p>
+            <strong>Base de edificaciones combinada.</strong> La base incluye ~6.7k edificios OSM
+            (con atributos manuales como <code>building:levels</code> y <code>name</code>),
+            complementados con ~14.5k detecciones adicionales de <em>Google Open Buildings v3</em>{" "}
+            (imagery May 2023) y ~350 de <em>Microsoft Global ML Building Footprints</em> (Maxar 2020–2021),
+            deduplicados mediante el dataset combinado VIDA (source.coop). Para estas detecciones ML
+            —sin atributos de altura— se aplica una heurística de pisos por área:{" "}
+            <em>&lt;80 m²→2 pisos, 80–250→4, 250–600→8, &gt;600→12</em>.
+            El valor total edificado del área expandida es de aproximadamente{" "}
+            <strong>{((meta?.total_value_cop || 0) / 1e12).toFixed(1)} billones COP</strong>
+            ({meta?.buildings_total?.toLocaleString("es-CO") || "—"} edificaciones).
           </p>
           <p>
             <strong>Asignación multi-cauce.</strong> Cada edificio y celda del grid queda etiquetada
@@ -449,7 +458,7 @@ export default function ReportView() {
             <tr><td>Cauce La Presidenta</td><td>OpenStreetMap (Overpass API)</td><td>abril 2026</td><td>ODbL</td></tr>
             <tr><td>Cauce Volcana-Los Balsos</td><td>OpenStreetMap (Overpass API)</td><td>abril 2026</td><td>ODbL</td></tr>
             <tr><td>Río Medellín</td><td>OpenStreetMap</td><td>abril 2026</td><td>ODbL</td></tr>
-            <tr><td>Edificaciones ({meta?.buildings_total?.toLocaleString("es-CO") || "6.679"})</td><td>OpenStreetMap</td><td>abril 2026</td><td>ODbL</td></tr>
+            <tr><td>Edificaciones ({meta?.buildings_total?.toLocaleString("es-CO") || "21.174"})</td><td>OSM + Google Open Buildings v3 + Microsoft GMLBF (VIDA combined)</td><td>2023–2026</td><td>ODbL / CC BY 4.0</td></tr>
             <tr><td>Equip. críticos ({meta?.critical_total || 133})</td><td>OpenStreetMap amenities</td><td>abril 2026</td><td>ODbL</td></tr>
             <tr><td>Puentes/túneles ({meta?.bridges_total || 92})</td><td>OpenStreetMap bridges</td><td>abril 2026</td><td>ODbL</td></tr>
             <tr><td>Población (H3 hex escalado)</td><td>Kontur × DANE 2024</td><td>2023-11 / 2024</td><td>CC BY 4.0</td></tr>
