@@ -159,6 +159,20 @@ def damage_ratio(depth):
     return min(0.95, max(0.0, 0.15 * depth + 0.08 * depth * depth))
 
 
+def _strict_dump(obj, path):
+    """Escribe JSON estricto (sin NaN/Infinity) limpiando floats inválidos."""
+    def sanitize(v):
+        if isinstance(v, dict):
+            return {k: sanitize(x) for k, x in v.items()}
+        if isinstance(v, list):
+            return [sanitize(x) for x in v]
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            return None
+        return v
+    with open(path, "w") as f:
+        json.dump(sanitize(obj), f, allow_nan=False)
+
+
 def tag_points_fc(path, dem, dem_bbox, cauce_pts, cauce_ids, max_dist=400):
     """Re-etiqueta un FeatureCollection de puntos con hand, dist_grid_m, cauce_id."""
     if not path.exists():
@@ -179,7 +193,7 @@ def tag_points_fc(path, dem, dem_bbox, cauce_pts, cauce_ids, max_dist=400):
         feat["properties"]["hand"] = round(hand, 2)
         feat["properties"]["dist_grid_m"] = round(dist, 1)
         feat["properties"]["cauce_id"] = cauce_ids[cidx]
-    json.dump(fc, open(path, "w"))
+    _strict_dump(fc, path)
     return fc
 
 
@@ -246,7 +260,8 @@ def main():
                     depth = max(0.0, l - hand)
                     s["loss_by_level"][l] += value_cop * damage_ratio(depth)
 
-    json.dump(buildings_fc, open(DATA / "buildings.geojson", "w"))
+    # Strict JSON — sin NaN/Infinity que rompen JSON.parse del navegador
+    _strict_dump(buildings_fc, DATA / "buildings.geojson")
     for cid in cauce_ids:
         total_lvl5 = stats[cid]["affected_by_level"][5.0]
         print(f"  {cid}: afectados@5m={total_lvl5}  loss@5m≈{stats[cid]['loss_by_level'][5.0]/1e9:.1f} mil M COP")
@@ -276,7 +291,7 @@ def main():
                 "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
             })
     grid = {"type": "FeatureCollection", "features": pts_feats}
-    json.dump(grid, open(DATA / "hand_grid.geojson", "w"))
+    _strict_dump(grid, DATA / "hand_grid.geojson")
     print(f"  grid points: {len(pts_feats)}")
 
     # --- Re-tag critical, bridges, kontur_pop ---
@@ -403,7 +418,7 @@ def main():
         "cauces": cauces_meta,
         "total": total_meta,
     }
-    json.dump(meta, open(DATA / "meta.json", "w"), indent=2)
+    _strict_dump(meta, DATA / "meta.json")
     print("Done. Wrote buildings.geojson, hand_grid.geojson, meta.json,"
           " y re-tagged critical/bridges/kontur_pop.")
 
