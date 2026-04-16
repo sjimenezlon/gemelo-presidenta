@@ -70,12 +70,23 @@ export function countAffectedPoints(
 }
 
 /**
- * Curvas IDF por cauce — valores referenciales POMCA AMVA + Manning en canal rectangular.
- * Mapea periodo de retorno a lluvia max 1h, caudal pico rational y profundidad.
+ * Curvas IDF por cauce — método racional Q=CiA/3.6 (C=0.75) + Manning en canal rectangular.
+ * H se obtiene resolviendo Q = (1/n)·bH·(bH/(b+2H))^(2/3)·S^(1/2).
  *
  * La Presidenta: A ≈ 7.2 km², S ≈ 0.065, b ≈ 6 m, n ≈ 0.035
- * Volcana-Los Balsos: A ≈ 5.5 km², S ≈ 0.055, b ≈ 5 m, n ≈ 0.040
- *   (cuenca menor, pendiente ligeramente menor, cauce más angosto ⇒ calados similares a caudales menores)
+ *   Fuentes: trazado OSM (15 segmentos, ~4.5 km), DEM Mapzen z14.
+ *
+ * Volcana-Los Balsos: A ≈ 4.0 km², S ≈ 0.080, b ≈ 4 m, n ≈ 0.040
+ *   Sistema Volcana + Los Balsos (tributario principal). Nace Alto Las Palmas ~2500 m.s.n.m.,
+ *   desemboca Río Medellín ~1500 m.s.n.m. Longitud real ~5 km (wikipedia, Urbam EAFIT).
+ *   Pendiente alta (1000 m de caída en 5 km) ⇒ caudales menores pero flujos rápidos.
+ *   Bajo EAFIT: box culvert hasta el Río Medellín.
+ *
+ * Referencias:
+ *  - Wikipedia: https://es.wikipedia.org/wiki/Quebrada_La_Volcana
+ *  - Urbam EAFIT Plan Maestro "Laboratorio Vivo"
+ *  - POMCA Río Aburrá (AMVA)
+ *  - Rennó et al. 2008; Nobre et al. 2011 (método HAND)
  */
 export type ScenarioKey = "tr2" | "tr5" | "tr10" | "tr25" | "tr50" | "tr100" | "cc2050";
 export type IdfTable = Record<ScenarioKey, { label: string; mmh: number; H: number; Q: number }>;
@@ -91,13 +102,13 @@ export const IDF: IdfTable = {
 };
 
 export const IDF_VOLCANA: IdfTable = {
-  tr2: { label: "TR 2", mmh: 45, H: 0.4, Q: 51 },
-  tr5: { label: "TR 5", mmh: 65, H: 0.75, Q: 75 },
-  tr10: { label: "TR 10", mmh: 80, H: 1.05, Q: 92 },
-  tr25: { label: "TR 25", mmh: 95, H: 1.55, Q: 109 },
-  tr50: { label: "TR 50", mmh: 110, H: 2.1, Q: 126 },
-  tr100: { label: "TR 100", mmh: 130, H: 2.8, Q: 149 },
-  cc2050: { label: "CC 2050 (+20%)", mmh: 156, H: 3.5, Q: 179 },
+  tr2: { label: "TR 2", mmh: 45, H: 0.5, Q: 38 },
+  tr5: { label: "TR 5", mmh: 65, H: 0.9, Q: 54 },
+  tr10: { label: "TR 10", mmh: 80, H: 1.2, Q: 67 },
+  tr25: { label: "TR 25", mmh: 95, H: 1.65, Q: 79 },
+  tr50: { label: "TR 50", mmh: 110, H: 2.15, Q: 92 },
+  tr100: { label: "TR 100", mmh: 130, H: 2.75, Q: 108 },
+  cc2050: { label: "CC 2050 (+20%)", mmh: 156, H: 3.5, Q: 130 },
 };
 
 export function idfForCauce(cauce: CauceId): IdfTable {

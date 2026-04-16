@@ -259,8 +259,12 @@ export default function DigitalTwinMap({
           }
           const volcEnd = endpoints(volcana);
           if (volcEnd) {
-            mk(volcEnd.east[0], volcEnd.east[1], "#f59e0b", "Nacimiento · Los Balsos alto", "Q. Volcana-Los Balsos — cerro Las Palmas");
-            mk(volcEnd.west[0], volcEnd.west[1], "#fcd34d", "Límite OSM Volcana · EAFIT", "Atraviesa Campus EAFIT antes de canalizarse al Río Medellín");
+            mk(volcEnd.east[0], volcEnd.east[1], "#f59e0b",
+               "Nacimiento · Alto Las Palmas",
+               "Q. Volcana-Los Balsos · ~2500 m.s.n.m. · 5 km hasta el Río");
+            mk(volcEnd.west[0], volcEnd.west[1], "#fcd34d",
+               "Confluencia Río Medellín",
+               "Tramo bajo EAFIT en box culvert · cota ~1500 m.s.n.m.");
           }
         }
       } catch (err: any) {

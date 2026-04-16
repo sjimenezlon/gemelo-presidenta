@@ -105,7 +105,9 @@ export default function ControlPanel({
           </div>
         )}
         <p className="mt-2 text-[10px] text-slate-500">
-          IDF referencial: {activeCauce === "volcana" ? "Volcana-Los Balsos (A≈5.5 km²)" : "La Presidenta (A≈7.2 km²)"}.
+          IDF: {activeCauce === "volcana"
+            ? "Volcana-Los Balsos (A≈4.0 km² · L≈5 km · nace 2500→ desemboca 1500 m.s.n.m.)"
+            : "La Presidenta (A≈7.2 km² · S=6.5%)"}.
           {twin.cauceFilter === "both" && " Con filtro 'Ambas' se muestra Presidenta por defecto."}
         </p>
       </section>

@@ -459,10 +459,19 @@ export default function ReportView() {
             <tr><td>Lluvia histórica</td><td>Open-Meteo ERA5 reanalysis</td><td>2020–2026</td><td>CC BY 4.0</td></tr>
             <tr><td>Cobertura suelo</td><td>ESA WorldCover 10m</td><td>2021</td><td>CC BY 4.0</td></tr>
             <tr><td>Imagen óptica</td><td>Sentinel-2 cloudless EOX</td><td>2023</td><td>CC BY 4.0 S-hub</td></tr>
-            <tr><td>Curvas IDF</td><td>POMCA AMVA — valores referenciales</td><td>vigente</td><td>Pública</td></tr>
+            <tr><td>Curvas IDF</td><td>POMCA Río Aburrá (AMVA) — valores referenciales</td><td>vigente</td><td>Pública</td></tr>
             <tr><td>Curvas de daño</td><td>HAZUS simplified</td><td>FEMA</td><td>Pública</td></tr>
+            <tr><td>Morfometría Volcana</td><td>Wikipedia Q. La Volcana + Urbam EAFIT Plan Maestro "Laboratorio Vivo"</td><td>2024–2026</td><td>CC BY-SA</td></tr>
           </tbody>
         </table>
+        <p className="mt-2 text-[10px] leading-snug text-slate-500">
+          Datos morfométricos Volcana verificados: longitud ~5 km, nacimiento Alto Las Palmas
+          ~2500 m.s.n.m., desembocadura Río Medellín ~1500 m.s.n.m. Los Balsos identificado
+          como tributario principal (confluencia antes de EAFIT). Tramo bajo campus EAFIT
+          canalizado en box culvert. Fuente: es.wikipedia.org/wiki/Quebrada_La_Volcana,
+          Urbam EAFIT (proyecto "Quebrada Volcana — Laboratorio Vivo para cultura y medio
+          ambiente", 100+ estudiantes involucrados), Vivir en El Poblado.
+        </p>
       </section>
 
       {/* 7. Limitaciones */}
