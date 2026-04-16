@@ -116,8 +116,25 @@ export default function AppShell() {
           if (Number.isFinite(lon) && Number.isFinite(lat)) flyTo(lon, lat);
           break;
         }
+        case "setBearing": {
+          const b = Number(d.value);
+          const m = mapRef.current;
+          if (m && Number.isFinite(b)) {
+            m.easeTo({ bearing: b, duration: 180 });
+          }
+          break;
+        }
+        case "setPitch": {
+          const p = Number(d.value);
+          const m = mapRef.current;
+          if (m && Number.isFinite(p)) {
+            m.easeTo({ pitch: Math.max(0, Math.min(75, p)), duration: 180 });
+          }
+          break;
+        }
         case "reset":
           twinStore.set({ floodLevel: 0.8, cauceFilter: "both" });
+          mapRef.current?.easeTo({ bearing: -22, pitch: 62, duration: 400 });
           break;
       }
     };
